@@ -63,5 +63,7 @@ public Q_SLOTS:
 	}
 };
 
+uint64_t strToMs(const QString &s, bool &success);
+QString msToStr(uint64_t ms);
 
 #endif

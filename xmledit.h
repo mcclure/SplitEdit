@@ -38,6 +38,12 @@ Q_SIGNALS:
     //void undoCommandAdded();
 };
 
+struct SingleSplit {
+    int split;
+    uint64_t ms;
+    QArray<QDomCharacterData> data;
+};
+
 class XmlEdit : public DocumentEdit
 {
     Q_OBJECT

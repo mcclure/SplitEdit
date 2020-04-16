@@ -6,6 +6,64 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 
+uint64_t strToMs(const QString &s, bool &success) {
+	success = false;
+	uint64_t result = 0;
+	bool tempSuccess;
+
+	QStringList csegs = s.split(":");
+	QStringList decimal = csegs.constLast().split(".");
+
+	if (decimal.size() > 2) return 0; // FAIL seconds.miliseconds is not a decimal
+
+	result = decimal[0].toLongLong(&tempSuccess) * 1000; // Seconds
+	if (!tempSuccess) return 0; // FAIL invalid seconds
+	if (decimal.size() == 2) { // Allow both :0 and :0.03
+		QString s = decimal[1];
+		s.toLongLong(&tempSuccess); // Test valid int before u 
+		if (!tempSuccess) return 0; // FAIL invalid ms
+		s.truncate(3);
+		result += s.toLongLong(&tempSuccess); // Milliseconds
+	}
+
+	csegs = csegs.mid(0, csegs.size()-1);
+	if (csegs.size() > 0) {
+		result += csegs.constLast().toLongLong(&tempSuccess)*60*1000; // Minutes
+		if (!tempSuccess) return 0; // FAIL invalid minutes
+
+		csegs = csegs.mid(0, csegs.size()-1);
+		if (csegs.size() > 0) {
+			result += csegs.constLast().toLongLong(&tempSuccess)*60*60*1000; // Hours
+			if (!tempSuccess) return 0;  // FAIL invalid hours
+			if (csegs.size() > 1) return 0; // FAIL too many colons
+		}
+	}
+
+	success = true;
+	return result;
+}
+
+QString msToStr(uint64_t ms) {
+	uint64_t mantissa;
+	QString r;
+
+	mantissa = ms % 1000;
+	ms /= 1000;
+	r = QString::number(mantissa).rightJustified(3, '0')
+
+	mantissa = ms % 60;
+	ms /= 60;
+	r = QString::number(mantissa).rightJustified(2, '0') + "." + r;
+
+	mantissa = ms % 60;
+	ms /= 60;
+	r = QString::number(mantissa).rightJustified(2, '0') + ":" + r;
+
+	r = QString::number(ms).rightJustified(2, '0') + ":" + r;
+
+	return r;
+}
+
 DocumentEdit::DocumentEdit(QWidget *parent) : QScrollArea(parent) {
 	setWidgetResizable(true);
 }
