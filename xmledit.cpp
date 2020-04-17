@@ -219,6 +219,7 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 
 						state.kind = PARSING_SEGMENT_HISTORY_RUN;
 						state.int1 = id;
+						state.dom1 = node;
 					} break;
     			case PARSING_SEGMENT_HISTORY_RUN:
 		        	if (tag == "RealTime") {

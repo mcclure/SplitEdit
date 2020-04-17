@@ -41,14 +41,18 @@ Q_SIGNALS:
 };
 
 struct SingleSplit {
-    quint64 split;
-    uint64_t ms;
-    QDomCharacterData outerXml;
-    QDomCharacterData innerXml;
+    qint64 split;
+    bool splitHas;
+    uint64_t splitMs;
+    bool totalHas;
+    uint64_t splitTotal;
+    QDomCharacterData outerXml; // <RealTime>
+    QDomCharacterData innerXml; // Text
+    bool xmlIsTotal; // otherwise split
 };
 
 struct SingleRun {
-    quint64 run;
+    qint64 run;
     QString timeLabel;
     QVector<SingleSplit> splits;
 
@@ -81,6 +85,7 @@ struct ParseState {
     QDomNode node;
     bool dead;
 
+    // Kind-specific data
     QString str1; // standalone: name
     qint64 int1; // attempt:id
     ParseState clone(QDomNode with) {
