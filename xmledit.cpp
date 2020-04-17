@@ -137,6 +137,16 @@ qint64 fetchElementInt(QDomElement element, QString name, bool *success) {
 	return s.toLongLong(success);
 }
 
+qint64 XmlEdit::fetchId(ParseState &state, QDomElement element) {
+	bool tempSuccess;
+	qint64 id = fetchElementInt(element, "id", &tempSuccess);
+	if (!tempSuccess) {
+		addNodeFail(state, QString("Couldn't understand attempt id: \"%1\"").arg(fetchElement(element, "id")));
+		return 0;
+	}
+	return id;
+}
+
 void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout) {
 	QDomNode &node = state.node;
 
@@ -150,6 +160,9 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 					if (depth == 2) {
 						if (tag == "AttemptHistory") {
 							state.kind = PARSING_ATTEMPT_SCAN;
+						} else if (tag == "Segments") {
+							state.kind = PARSING_SEGMENT_SCAN;
+							segmentsSeen = -1;
 						} else if (standaloneKeys.count(tag)) {
 							state.kind = PARSING_STANDALONE;
 							state.str1 = standaloneKeys[tag];
@@ -157,14 +170,30 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 					} break;
 				case PARSING_ATTEMPT_SCAN: {
 					if (tag == "Attempt") {
-						bool tempSuccess;
-						qint64 id = fetchElementInt(element, "id", &tempSuccess);
-						if (!tempSuccess) {
-							addNodeFail(state, QString("Couldn't understand attempt id: \"%1\"").arg(fetchElement(element, "id")));
-							break;
-						}
+						qint64 id = fetchId(state, element);
+						if (state.dead) return;
+
+						runKeys.append(id);
+						SingleRun &run = runs[id];
+						run.timeLabel = fetchElement(element, "started");
+						state.kind = PARSING_ATTEMPT_INSIDE;
+						state.int1 = id;
 					}
 				} break;
+				case PARSING_ATTEMPT_INSIDE:
+					if (tag == "AttemptHistory") {
+						state.kind = PARSING_ATTEMPT_REALTIME;
+					} break;
+				case PARSING_SEGMENT_SCAN:
+					if (tag == "Segment") {
+						segmentsSeen++;
+						state.kind = PARSING_SEGMENT;
+					} break;
+				case PARSING_SEGMENT: {
+					if (tag == "Name") {
+						state.kind = PARSING_SEGMENT_NAME;
+					}
+				}
 				default:break;
 			}
 		} break;
@@ -190,6 +219,15 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 					assignEdit->setText(text.data());
 					new ShortCharacterDataWatcher(assignEdit, text);
 				} break;
+				case PARSING_ATTEMPT_REALTIME: {
+					SingleRun &run = runs[state.int1];
+					run.realTime = text;
+				}
+				case PARSING_SEGMENT_NAME: {
+					while (splitNames.size() < segmentsSeen-1)
+						splitNames.append(QString());
+					splitNames.append(text.data());
+				}
 				default:break;
 			}
 		} break;

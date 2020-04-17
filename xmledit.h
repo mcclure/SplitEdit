@@ -49,8 +49,12 @@ struct SingleSplit {
 
 struct SingleRun {
     quint64 run;
+    QString timeLabel;
     QVector<SingleSplit> splits;
-    QDomCharacterData xml;
+
+    QDomCharacterData realTime;
+
+    //QDomCharacterData xml;
 };
 
 enum ParseStateKind {
@@ -58,13 +62,19 @@ enum ParseStateKind {
     PARSING_STANDALONE,
     PARSING_ATTEMPT_SCAN,
     PARSING_ATTEMPT,
+    PARSING_ATTEMPT_INSIDE,
+    PARSING_ATTEMPT_REALTIME,
+    PARSING_SEGMENT_SCAN,
+    PARSING_SEGMENT,
+    PARSING_SEGMENT_NAME,
 };
 struct ParseState {
     ParseStateKind kind;
     QDomNode node;
     bool dead;
 
-    QString str1; // standalone name
+    QString str1; // standalone: name
+    qint64 int1; // attempt:id
     ParseState clone(QDomNode with) {
         ParseState result(*this);
         result.node = with;
@@ -80,6 +90,7 @@ protected:
 	QDomDocument domDocument; // "Model"
 	QVBoxLayout *vLayout;
 
+    qint64 segmentsSeen; // Initialize to -1
     SingleRun bestSplits, bestRun;
     QVector<qint64> runKeys;
     QHash<qint64, SingleRun> runs;
@@ -87,6 +98,7 @@ protected:
 
     QHash<QString, QString> standaloneKeys;
 
+    qint64 fetchId(ParseState &state, QDomElement element);
     void addNodeFail(ParseState &state, QString message);
 	void addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout);
     void renderRun(SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout);
