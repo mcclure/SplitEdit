@@ -56,10 +56,13 @@ struct SingleRun {
 enum ParseStateKind {
     PARSING_NONE,
     PARSING_STANDALONE,
+    PARSING_ATTEMPT_SCAN,
+    PARSING_ATTEMPT,
 };
 struct ParseState {
     ParseStateKind kind;
     QDomNode node;
+    bool dead;
 
     QString str1; // standalone name
     ParseState clone(QDomNode with) {
@@ -78,11 +81,13 @@ protected:
 	QVBoxLayout *vLayout;
 
     SingleRun bestSplits, bestRun;
-    QVector<SingleRun> runs;
+    QVector<qint64> runKeys;
+    QHash<qint64, SingleRun> runs;
     QStringList splitNames;
 
     QHash<QString, QString> standaloneKeys;
 
+    void addNodeFail(ParseState &state, QString message);
 	void addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout);
     void renderRun(SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout);
 

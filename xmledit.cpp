@@ -117,23 +117,54 @@ static const QString &nodeTypeName(QDomNode::NodeType nodeType) {
 
 #include <watchers.h>
 
+void XmlEdit::addNodeFail(ParseState &state, QString message) {
+	QMessageBox messageBox(this);
+	messageBox.setText(QString("Could not open this file: ") + message);
+	messageBox.exec();
+	state.dead = true;
+}
+
+QString fetchElement(QDomElement element, QString name) {
+	QDomAttr attr = element.attributes().namedItem(name).toAttr();
+	if (attr.isNull())
+		return QString();
+	else
+		return attr.value();
+}
+
+qint64 fetchElementInt(QDomElement element, QString name, bool *success) {
+	QString s = fetchElement(element, name);
+	return s.toLongLong(success);
+}
+
 void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout) {
 	QDomNode &node = state.node;
 
 	switch(node.nodeType()) {
 		case QDomNode::ElementNode: {
 			QDomElement element = node.toElement();
+			QString tag = element.tagName();
 
 			switch(state.kind) {
 				case PARSING_NONE: // Toplevel
 					if (depth == 2) {
-						QString tag = element.tagName();
-
-						if (standaloneKeys.count(tag)) {
+						if (tag == "AttemptHistory") {
+							state.kind = PARSING_ATTEMPT_SCAN;
+						} else if (standaloneKeys.count(tag)) {
 							state.kind = PARSING_STANDALONE;
 							state.str1 = standaloneKeys[tag];
 						}
 					} break;
+				case PARSING_ATTEMPT_SCAN: {
+					if (tag == "Attempt") {
+						bool tempSuccess;
+						qint64 id = fetchElementInt(element, "id", &tempSuccess);
+						if (!tempSuccess) {
+							addNodeFail(state, QString("Couldn't understand attempt id: \"%1\"").arg(fetchElement(element, "id")));
+							break;
+						}
+					}
+				} break;
 				default:break;
 			}
 		} break;
@@ -234,6 +265,11 @@ bool XmlEdit::read(QIODevice *device) {
     		stack.push(current);
     		// Allow addNode to make any state changes appropriate for this node
     		addNode(current, stack.count(), content, vContentLayout);
+    		// Do we need to bail out?
+    		if (current.dead) {
+    			clearUi();
+    			return false;
+    		}
     		// Children will see the state changes, but no one else will
     		current = current.clone(current.node.firstChild());
     	} else if (!stack.count()) {
