@@ -5,6 +5,24 @@
 #include <QLineEdit>
 #include <QDomElement>
 
+// This file is absurdly repetitive because Qt doesn't have proper template support
+
+class ShortCharacterDataWatcher : public QObject {
+	Q_OBJECT
+protected:
+	QLineEdit* edit;
+	QDomCharacterData data;
+public:
+	ShortCharacterDataWatcher(QLineEdit* _edit, const QDomCharacterData &_data) : QObject(_edit), edit(_edit), data(_data) {
+		connect(edit, &QLineEdit::textChanged,
+            this, &ShortCharacterDataWatcher::changed);
+	}
+public Q_SLOTS:
+	void changed() {
+		data.setData(edit->text());
+	}
+};
+
 class CharacterDataWatcher : public QObject {
 	Q_OBJECT
 protected:

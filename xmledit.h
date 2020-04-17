@@ -4,6 +4,8 @@
 #include <QScrollArea>
 #include <QDomDocument>
 #include <QVBoxLayout>
+#include <QVector>
+#include <QHash>
 
 // Frustratingly, Qt has no abstract document class.
 // They have a text document class but it cannot be separated from its text model.
@@ -39,9 +41,32 @@ Q_SIGNALS:
 };
 
 struct SingleSplit {
-    int split;
+    quint64 split;
     uint64_t ms;
-    QArray<QDomCharacterData> data;
+    QDomCharacterData outerXml;
+    QDomCharacterData innerXml;
+};
+
+struct SingleRun {
+    quint64 run;
+    QVector<SingleSplit> splits;
+    QDomCharacterData xml;
+};
+
+enum ParseStateKind {
+    PARSING_NONE,
+    PARSING_STANDALONE,
+};
+struct ParseState {
+    ParseStateKind kind;
+    QDomNode node;
+
+    QString str1; // standalone name
+    ParseState clone(QDomNode with) {
+        ParseState result(*this);
+        result.node = with;
+        return result;
+    }
 };
 
 class XmlEdit : public DocumentEdit
@@ -52,7 +77,14 @@ protected:
 	QDomDocument domDocument; // "Model"
 	QVBoxLayout *vLayout;
 
-	void addNode(QDomNode node, int depth);
+    SingleRun bestSplits, bestRun;
+    QVector<SingleRun> runs;
+    QStringList splitNames;
+
+    QHash<QString, QString> standaloneKeys;
+
+	void addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout);
+    void renderRun(SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout);
 
 public:
     explicit XmlEdit(QWidget *parent = nullptr);

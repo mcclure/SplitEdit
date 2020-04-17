@@ -49,7 +49,7 @@ QString msToStr(uint64_t ms) {
 
 	mantissa = ms % 1000;
 	ms /= 1000;
-	r = QString::number(mantissa).rightJustified(3, '0')
+	r = QString::number(mantissa).rightJustified(3, '0');
 
 	mantissa = ms % 60;
 	ms /= 60;
@@ -73,6 +73,10 @@ void DocumentEdit::clearUi() {
 }
 
 XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL) {
+	standaloneKeys["GameName"] = "Game name:";
+	standaloneKeys["CategoryName"] = "Category name:";
+	standaloneKeys["AttemptCount"] = "Attempts";
+	standaloneKeys["Offset"] = "Offset:";
 }
 
 XmlEdit::~XmlEdit() {
@@ -113,84 +117,52 @@ static const QString &nodeTypeName(QDomNode::NodeType nodeType) {
 
 #include <watchers.h>
 
-void XmlEdit::addNode(QDomNode node, int depth) {
-	QWidget *pane = new QWidget(widget());
+void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout) {
+	QDomNode &node = state.node;
 
-	QWidget *content = pane;
-	if (depth > 0) {
-		QHBoxLayout *hPaneLayout = new QHBoxLayout(pane);
-		hPaneLayout->setContentsMargins(0,0,0,0);
-		pane->setLayout(hPaneLayout);
-		hPaneLayout->addSpacing(depth*40);
-		content = new QWidget(pane);
-		hPaneLayout->addWidget(content);
-	}
-
-	QVBoxLayout *vContentLayout = new QVBoxLayout(content);
-	vContentLayout->setContentsMargins(0,0,0,0);
-	content->setLayout(vContentLayout);
-
-	QLabel *kindLabel = new QLabel(content); vContentLayout->addWidget(kindLabel);
-	kindLabel->setText(nodeTypeName(node.nodeType()));
-	vContentLayout->addWidget(kindLabel);
 	switch(node.nodeType()) {
 		case QDomNode::ElementNode: {
 			QDomElement element = node.toElement();
 
-			QLineEdit *tagEdit = new QLineEdit(content);
-			vContentLayout->addWidget(tagEdit);
-			QFontMetrics metrics(tagEdit->font());
-			int columnWidth = metrics.averageCharWidth();
-			tagEdit->setFixedWidth(30*columnWidth);
-			tagEdit->setText(element.tagName());
+			switch(state.kind) {
+				case PARSING_NONE: // Toplevel
+					if (depth == 2) {
+						QString tag = element.tagName();
 
-			new TagNameWatcher(tagEdit, element);
+						if (standaloneKeys.count(tag)) {
+							state.kind = PARSING_STANDALONE;
+							state.str1 = standaloneKeys[tag];
+						}
+					} break;
+				default:break;
+			}
+		} break;
+		case QDomNode::TextNode: {
+			QDomCharacterData text = node.toCharacterData();
 
-			QDomNamedNodeMap attributes = element.attributes();
-			for(int c = 0; c < attributes.length(); c++) {
-				QDomNode attributeNode = attributes.item(c);
-				QDomAttr attribute = attributeNode.toAttr();
-				if (!attribute.isNull()) {
+			switch(state.kind) {
+				case PARSING_STANDALONE: {
+					QString label = state.str1;
+
 					QWidget *assign = new QWidget(content);
 					QHBoxLayout *hAssignLayout = new QHBoxLayout(assign);
 					hAssignLayout->setContentsMargins(0,0,0,0);
 					assign->setLayout(hAssignLayout);
 					vContentLayout->addWidget(assign);
 
-					QLineEdit *assignLeft = new QLineEdit(assign);
-					hAssignLayout->addWidget(assignLeft);
-					assignLeft->setFixedWidth(30*columnWidth);
-					assignLeft->setText(attribute.name());
-
-					QLabel *assignLabel = new QLabel("=", assign);
+					QLabel *assignLabel = new QLabel(label, assign);
 					hAssignLayout->addWidget(assignLabel);
 
-					QLineEdit *assignRight = new QLineEdit(assign);
-					hAssignLayout->addWidget(assignRight);
-					assignRight->setFixedWidth(38*columnWidth);
-					assignRight->setText(attribute.value());
-					new AttrWatcher(assignLeft, assignRight, element);
-
-					hAssignLayout->addStretch();
-				}
+					QLineEdit *assignEdit = new QLineEdit(assign);
+					hAssignLayout->addWidget(assignEdit);
+					//assignEdit->setFixedWidth(38*columnWidth);
+					assignEdit->setText(text.data());
+					new ShortCharacterDataWatcher(assignEdit, text);
+				} break;
+				default:break;
 			}
 		} break;
-		case QDomNode::TextNode:
-		case QDomNode::CommentNode: {
-			QDomCharacterData data = node.toCharacterData();
-			QPlainTextEdit *textEdit = new QPlainTextEdit(content);
-
-			QFontMetrics metrics(textEdit->font());
-			int rowHeight = metrics.lineSpacing();
-			int columnWidth = metrics.averageCharWidth();
-			textEdit->setFixedHeight(6*rowHeight);
-			textEdit->setFixedWidth(80*columnWidth);
-
-			textEdit->setPlainText(data.data());
-			vContentLayout->addWidget(textEdit);
-
-			new CharacterDataWatcher(textEdit, data);
-		} break;
+		case QDomNode::CommentNode:
 		// These should be impossible
 		case QDomNode::AttributeNode:
 		case QDomNode::BaseNode:
@@ -206,10 +178,12 @@ void XmlEdit::addNode(QDomNode node, int depth) {
 		case QDomNode::EntityNode:
 			break;
 	}
-	//label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-	//label->setAlignment(Qt::AlignBottom | Qt::AlignRight);
+}
 
-	vLayout->addWidget(pane);
+void renderRun(SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout) {
+	//QLabel *kindLabel = new QLabel(content); vContentLayout->addWidget(kindLabel);
+	//kindLabel->setText(nodeTypeName(node.nodeType()));
+	//vContentLayout->addWidget(kindLabel);
 }
 
 bool XmlEdit::isModified() const {
@@ -246,18 +220,28 @@ bool XmlEdit::read(QIODevice *device) {
     clearUi();
 
     QDomElement root = domDocument.documentElement();
-    QStack<QDomNode> stack;
-    QDomNode current = root;
+    QStack<ParseState> stack;
+    ParseState current = ParseState().clone(root);
+
+    QWidget *content = widget();
+    QVBoxLayout *vContentLayout = vLayout;
+    //vContentLayout->setContentsMargins(0,0,0,0);
+	//content->setLayout(vContentLayout);
 
     while(1) {
-    	if (!current.isNull()) {
-    		addNode(current, stack.count());
+    	if (!current.node.isNull()) {
+    		// Push a copy of the state to the stack
     		stack.push(current);
-    		current = current.firstChild();
+    		// Allow addNode to make any state changes appropriate for this node
+    		addNode(current, stack.count(), content, vContentLayout);
+    		// Children will see the state changes, but no one else will
+    		current = current.clone(current.node.firstChild());
     	} else if (!stack.count()) {
     		break;
     	} else {
-    		current = stack.pop().nextSibling();
+    		// No children or children are finished, rewind and move to next node
+    		ParseState previous = stack.pop();
+    		current = previous.clone(previous.node.nextSibling());
     	}
     }
 
