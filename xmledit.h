@@ -52,7 +52,7 @@ struct SingleRun {
     QString timeLabel;
     QVector<SingleSplit> splits;
 
-    QDomCharacterData realTime;
+    QDomCharacterData realTimeTotal;
 
     //QDomCharacterData xml;
 };
@@ -67,6 +67,14 @@ enum ParseStateKind {
     PARSING_SEGMENT_SCAN,
     PARSING_SEGMENT,
     PARSING_SEGMENT_NAME,
+    PARSING_SEGMENT_PB_SPLITTIMES,
+    PARSING_SEGMENT_PB_SPLITTIME,
+    PARSING_SEGMENT_PB_REALTIME,
+    PARSING_SEGMENT_BESTSPLIT_BESTSEGMENTTIME,
+    PARSING_SEGMENT_BESTSPLIT_REALTIME,
+    PARSING_SEGMENT_HISTORY,
+    PARSING_SEGMENT_HISTORY_RUN,
+    PARSING_SEGMENT_HISTORY_RUN_REALTIME,
 };
 struct ParseState {
     ParseStateKind kind;

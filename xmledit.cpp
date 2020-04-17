@@ -6,8 +6,8 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 
-uint64_t strToMs(const QString &s, bool &success) {
-	success = false;
+uint64_t strToMs(const QString &s, bool *success) {
+	*success = false;
 	uint64_t result = 0;
 	bool tempSuccess;
 
@@ -39,7 +39,7 @@ uint64_t strToMs(const QString &s, bool &success) {
 		}
 	}
 
-	success = true;
+	*success = true;
 	return result;
 }
 
@@ -192,8 +192,38 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 				case PARSING_SEGMENT: {
 					if (tag == "Name") {
 						state.kind = PARSING_SEGMENT_NAME;
+					} else if (tag == "SplitTimes") {
+						state.kind = PARSING_SEGMENT_PB_SPLITTIMES;
+					} else if (tag == "BestSegmentTime") {
+						state.kind = PARSING_SEGMENT_BESTSPLIT_BESTSEGMENTTIME;
+					} else if (tag == "SegmentHistory") {
+						state.kind = PARSING_SEGMENT_HISTORY;
 					}
-				}
+				} break;
+			    case PARSING_SEGMENT_PB_SPLITTIMES:
+					if (tag == "SplitTime") {
+						state.kind = PARSING_SEGMENT_PB_SPLITTIME;
+					} break;
+				case PARSING_SEGMENT_PB_SPLITTIME:
+					if (tag == "RealTime") {
+						state.kind = PARSING_SEGMENT_BESTSPLIT_REALTIME;
+					} break;
+		        case PARSING_SEGMENT_BESTSPLIT_BESTSEGMENTTIME:
+		        	if (tag == "RealTime") {
+						state.kind = PARSING_SEGMENT_PB_REALTIME;
+					} break;
+		        case PARSING_SEGMENT_HISTORY:
+		        	if (tag == "Time") {
+						qint64 id = fetchId(state, element);
+						if (state.dead) return;
+
+						state.kind = PARSING_SEGMENT_HISTORY_RUN;
+						state.int1 = id;
+					} break;
+    			case PARSING_SEGMENT_HISTORY_RUN:
+		        	if (tag == "RealTime") {
+						state.kind = PARSING_SEGMENT_HISTORY_RUN_REALTIME;
+					} break;
 				default:break;
 			}
 		} break;
@@ -221,12 +251,24 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 				} break;
 				case PARSING_ATTEMPT_REALTIME: {
 					SingleRun &run = runs[state.int1];
-					run.realTime = text;
-				}
+					run.realTimeTotal = text;
+				} break;
 				case PARSING_SEGMENT_NAME: {
 					while (splitNames.size() < segmentsSeen-1)
 						splitNames.append(QString());
 					splitNames.append(text.data());
+				} break;
+				case PARSING_SEGMENT_PB_REALTIME:
+				case PARSING_SEGMENT_BESTSPLIT_REALTIME:
+				case PARSING_SEGMENT_HISTORY_RUN_REALTIME: {
+					printf("kind %d, content %s\n", state.kind, text.data().toStdString().c_str());
+					bool success;
+					uint64_t time = strToMs(text.data(), &success);
+					if (success) {
+						printf("time %lld\n", time);
+						QString s = msToStr(time);
+						printf("reverse time %s\n", s.toStdString().c_str());
+					}
 				}
 				default:break;
 			}
