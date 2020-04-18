@@ -7,6 +7,7 @@
 #include <QPlainTextEdit>
 #include <QHeaderView>
 #include <QScrollBar>
+#include <QApplication>
 #include "TableWidgetNoScroll.h"
 
 uint64_t strToMs(const QString &s, bool *success) {
@@ -75,7 +76,7 @@ void DocumentEdit::clearUi() {
 	setWidget(new QWidget());
 }
 
-XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL) {
+XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIcon(QApplication::style()->standardIcon(QStyle::SP_BrowserStop)) {
 	standaloneKeys["GameName"] = tr("Game name:");
 	standaloneKeys["CategoryName"] = tr("Category name:");
 	standaloneKeys["AttemptCount"] = tr("Attempts");
@@ -92,6 +93,13 @@ XmlEdit::~XmlEdit() {
 
 void XmlEdit::clearUi() {
 	DocumentEdit::clearUi();
+
+	topSegment = -1; // This is all essentially UI state
+	bestSplits = SingleRun();
+	bestRun = SingleRun();
+	runKeys.clear();
+	runs.clear();
+	splitNames.clear();
 
 	vLayout = new QVBoxLayout(widget());
 	widget()->setLayout(vLayout);
@@ -383,9 +391,46 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     		split.totalTimeWidget = totalTime;
     	}
 
+		new XmlEditTableWatcher(table, this, run);
+
     	vContentLayout->addWidget(table);
     	run.tableWidget = table;
     }
+}
+
+void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
+	// Interpret cell
+	QString text = item->text()
+	bool success;
+	uint64_t ms = strToMs(item->text(), &success);
+	bool empty = text.isEmpty();
+
+	// Reconstruct table position
+	bool cellIsTotal = item->column() == 2;
+	SingleSplit &split = run.splits[item->row()];
+
+	// Note an empty input is a valid input, it implies the split was skipped
+	if (success || empty) {
+		// Clear error icon
+		item->setIcon(xmlEdit->nullIcon);
+		// Set underlying DOM element (if any)
+		if (cellIsTotal == xmlIsTotal)
+			data.setData(item->text());
+		// Copy ms value back into split
+		if (cellIsTotal) {
+			split.totalHas = !empty;
+			split.totalMs = ms;
+		} else {
+			split.splitHas = !empty;
+			split.splitEmpty = ms;
+		}
+		// Whichever column we just changed, correct the other side
+		xmlEdit->correctTable(run, cellIsTotal);
+
+	// There's text in the cell but it's garbage, show the error icon
+	} else {
+		item->setIcon(xmlEdit->stopIcon);
+	}
 }
 
 bool XmlEdit::isModified() const {

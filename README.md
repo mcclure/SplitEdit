@@ -23,11 +23,12 @@ Then run:
 ## Known problems
 
 * No undo
-* On save: whitespace, attribute order, and superfluous-but-intentional XML escaping will not be preserved
-* Can't reorder elements
-* Can't add or remove elements
+* Can't remove a run
+* If a run has fewer splits than it should you can't fix this
+* Split totaling might work wrong for files which have been edited (for example by removing a split)
+* Rounds to millisecond, this is what you want for LiveSplit but not for LiveSplit One
 * Open/save starts at system root every time :/
-* Open/save doesn't filter for .xml files
+* Open/save doesn't filter for .lss files
 * File-modified tracking might be wrong
 
 This application will likely get unacceptably slow for very large (hundreds of megabytes) XML files.

@@ -100,6 +100,7 @@ struct ParseState {
 class XmlEdit : public DocumentEdit
 {
     Q_OBJECT
+    friend class XmlEditTableWatcher;
 
 protected:
 	QDomDocument domDocument; // "Model"
@@ -114,6 +115,7 @@ protected:
     // Constants
     QStringList runTableLabels;
     QHash<QString, QString> standaloneKeys;
+    QIcon nullIcon, stopIcon;
 
     qint64 fetchId(ParseState &state, QDomElement element);
     void addNodeFail(ParseState &state, QString message);
@@ -142,5 +144,18 @@ public Q_SLOTS:
     void clearUi(); // Also resets file state
 };
 
+class XmlEditTableWatcher : public QObject {
+	Q_OBJECT
+protected:
+	XmlEdit *xmlEdit;
+	SingleRun &run;
+public:
+	XmlEditTableWatcher(QTableWidget* _edit, XmlEdit *_xmlEdit, SingleRun &_run) : QObject(_edit), xmlEdit(_xmlEdit), run(_run) {
+		connect(_edit, &QTableWidget::itemChanged,
+            this, &XmlEditTableWatcher::changed);
+	}
+public Q_SLOTS:
+	void changed(QTableWidgetItem *item);
+};
 
 #endif
