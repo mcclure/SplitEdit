@@ -1,4 +1,5 @@
 #ifndef WATCHERS_H
+#define WATCHERS_H
 
 #include <QPlainTextEdit>
 #include <QDomCharacterData>

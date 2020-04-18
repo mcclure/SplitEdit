@@ -7,6 +7,7 @@
 #include <QPlainTextEdit>
 #include <QHeaderView>
 #include <QScrollBar>
+#include "TableWidgetNoScroll.h"
 
 uint64_t strToMs(const QString &s, bool *success) {
 	*success = false;
@@ -345,7 +346,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 	}
 
 	if (run.splits.size()) { // Split table (if any)
-		QTableWidget *table = new QTableWidget(run.splits.size(), 3, content);
+		QTableWidget *table = new TableWidgetNoScroll(run.splits.size(), 3, content);
     	table->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents); // DOES ANYTHING??
 		table->setHorizontalHeaderLabels(runTableLabels);
 

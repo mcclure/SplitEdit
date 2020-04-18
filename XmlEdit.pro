@@ -4,7 +4,8 @@ requires(qtConfig(filedialog))
 
 HEADERS       = mainwindow.h \
                 xmledit.h \
-                watchers.h
+                watchers.h \
+                TableWidgetNoScroll.h
 SOURCES       = main.cpp \
                 mainwindow.cpp \
                 xmledit.cpp
