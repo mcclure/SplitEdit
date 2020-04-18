@@ -197,7 +197,7 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 					}
 				} break;
 				case PARSING_ATTEMPT_INSIDE: // In <Attempt> looking for <AttemptHistory>
-					if (tag == "AttemptHistory") {
+					if (tag == "RealTime") {
 						state.kind = PARSING_ATTEMPT_REALTIME;
 					} break;
 				case PARSING_SEGMENT_SCAN: // In <Segments> looking for <Segment>
@@ -343,13 +343,19 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 		vContentLayout->addWidget(line);
 	}
 
-	{ // Label is an hbox so there can be a "PB" badge later
+	{
 		QWidget *labelHbox = new QWidget(content);
 		QHBoxLayout *labelHLayout = new QHBoxLayout(labelHbox);
 		labelHLayout->setContentsMargins(0,0,0,0);
+
 		QLabel *label = new QLabel(labelHbox);
 		label->setText(runLabel);
 		labelHLayout->addWidget(label);
+
+		QLabel *totalTime = new QLabel(labelHbox);
+		totalTime->setText(run.realTimeTotal.data());
+		labelHLayout->addWidget(totalTime);
+
 		vContentLayout->addWidget(labelHbox);
 	}
 
@@ -400,7 +406,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 
 void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 	// Interpret cell
-	QString text = item->text()
+	QString text = item->text();
 	bool success;
 	uint64_t ms = strToMs(item->text(), &success);
 	bool empty = text.isEmpty();
@@ -414,15 +420,15 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 		// Clear error icon
 		item->setIcon(xmlEdit->nullIcon);
 		// Set underlying DOM element (if any)
-		if (cellIsTotal == xmlIsTotal)
-			data.setData(item->text());
+		if (cellIsTotal == split.xmlIsTotal)
+			split.textXml.setData(item->text());
 		// Copy ms value back into split
 		if (cellIsTotal) {
 			split.totalHas = !empty;
 			split.totalMs = ms;
 		} else {
 			split.splitHas = !empty;
-			split.splitEmpty = ms;
+			split.splitMs = ms;
 		}
 		// Whichever column we just changed, correct the other side
 		xmlEdit->correctTable(run, cellIsTotal);
