@@ -119,6 +119,7 @@ protected:
     void addNodeFail(ParseState &state, QString message);
 	void addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout);
     void renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout);
+    void correctTable(SingleRun &run, bool truthIsTotal);
 
 public:
     explicit XmlEdit(QWidget *parent = nullptr);

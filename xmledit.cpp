@@ -465,20 +465,42 @@ bool XmlEdit::read(QIODevice *device) {
     for(int ridx = 0; ridx < runKeys.size(); ridx++) {
     	int id = runKeys[ridx];
     	SingleRun &run = runs[id];
-    	if (run.tableWidget) {
-    		uint64_t total = 0;
-	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
-	    		SingleSplit &split = run.splits[sidx];
-	    		if (split.splitHas) {
-	    			total += split.splitMs;
-	    			if (split.totalTimeWidget)
-	    				split.totalTimeWidget->setText(msToStr(total));
-	    		}
-	    	}
-    	}
+    	correctTable(run, false); // Runs track split time
     }
 
     return true;
+}
+
+// If truthIsTotal convert total->split otherwise do the opposite
+void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal) {
+	if (run.tableWidget) {
+		if (truthIsTotal) { // Total is truth, fill out splits
+			uint64_t lastMs = 0;
+	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
+	    		SingleSplit &split = run.splits[sidx];
+	    		if (split.totalHas) {
+	    			uint64_t splitMs = split.totalMs - lastMs;
+	    			if (split.splitTimeWidget)
+	    				split.splitTimeWidget->setText(msToStr(splitMs));
+	    			if (!split.xmlIsTotal)
+	    				split.textXml.setData(msToStr(splitMs));
+	    			lastMs = split.totalMs;
+	    		}
+	    	}
+		} else { // Splits are truth, fill out totals
+			uint64_t totalMs = 0;
+	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
+	    		SingleSplit &split = run.splits[sidx];
+	    		if (split.splitHas) {
+	    			totalMs += split.splitMs;
+	    			if (split.totalTimeWidget)
+	    				split.totalTimeWidget->setText(msToStr(totalMs));
+	    			if (split.xmlIsTotal)
+	    				split.textXml.setData(msToStr(totalMs));
+	    		}
+	    	}
+	    }
+	}
 }
 
 bool XmlEdit::write(QIODevice *device) const {
