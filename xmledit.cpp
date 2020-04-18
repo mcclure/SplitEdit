@@ -5,6 +5,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
+#include <QHeaderView>
+#include <QScrollBar>
 
 uint64_t strToMs(const QString &s, bool *success) {
 	*success = false;
@@ -344,7 +346,19 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 
 	if (run.splits.size()) { // Split table (if any)
 		QTableWidget *table = new QTableWidget(run.splits.size(), 3, content);
+    	table->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents); // DOES ANYTHING??
 		table->setHorizontalHeaderLabels(runTableLabels);
+
+		// This "feels wrong" but seems to be necessary...
+		// Qt assumes tables always have a scrollbar, and if you want to put a table •inside* a
+		// scroll area, as we are doing, and let the outer scroll area handle the scrolling, it
+		// just.. won't. So we compute a fixed size for the table and disable scrolling:
+		int height = table->horizontalHeader()->height() + table->horizontalHeader()->offset();
+		for (int row = 0; row < table->rowCount(); ++row)
+			height += table->rowHeight(row);
+		table->setFixedHeight(height);
+		table->verticalScrollBar()->setDisabled(true);
+    	table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
     		SingleSplit &split = run.splits[sidx];
