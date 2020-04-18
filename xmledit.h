@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 #include <QVector>
 #include <QHash>
+#include <QTableWidget>
 
 // Frustratingly, Qt has no abstract document class.
 // They have a text document class but it cannot be separated from its text model.
@@ -49,6 +50,8 @@ struct SingleSplit {
     QDomElement realTimeXml; // <RealTime> (may be null)
     QDomCharacterData textXml; // Text inside <RealTime>
     bool xmlIsTotal = false; // otherwise split
+    QTableWidgetItem *splitTimeWidget = NULL;
+    QTableWidgetItem *totalTimeWidget = NULL;
 };
 
 struct SingleRun {
@@ -56,7 +59,7 @@ struct SingleRun {
     QVector<SingleSplit> splits;
 
     QDomCharacterData realTimeTotal;
-
+    QTableWidget *tableWidget = NULL;
     //QDomCharacterData xml;
 };
 

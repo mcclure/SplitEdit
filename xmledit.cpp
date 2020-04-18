@@ -5,7 +5,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
-#include <QTableWidget>
 
 uint64_t strToMs(const QString &s, bool *success) {
 	*success = false;
@@ -360,14 +359,17 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     		if (split.splitHas)
     			splitTime->setText(msToStr(split.splitMs));
     		table->setItem(sidx, 1, splitTime);
+    		split.splitTimeWidget = splitTime;
 
     		QTableWidgetItem *totalTime = new QTableWidgetItem();
     		if (split.totalHas)
     			totalTime->setText(msToStr(split.totalMs));
     		table->setItem(sidx, 2, totalTime);
+    		split.totalTimeWidget = totalTime;
     	}
 
     	vContentLayout->addWidget(table);
+    	run.tableWidget = table;
     }
 }
 
@@ -413,6 +415,7 @@ bool XmlEdit::read(QIODevice *device) {
     //vContentLayout->setContentsMargins(0,0,0,0);
 	//content->setLayout(vContentLayout);
 
+    // Parse XML
     while(1) {
     	if (!current.node.isNull()) {
     		// Push a copy of the state to the stack
@@ -435,11 +438,29 @@ bool XmlEdit::read(QIODevice *device) {
     	}
     }
 
+    // Build tables
     for(int ridx = 0; ridx < runKeys.size(); ridx++) {
     	int id = runKeys[ridx];
     	SingleRun &run = runs[id];
 
     	renderRun(QString("Run %1: %2").arg(id).arg(run.timeLabel), run, content, vContentLayout);
+    }
+
+    // Double-check tables
+    for(int ridx = 0; ridx < runKeys.size(); ridx++) {
+    	int id = runKeys[ridx];
+    	SingleRun &run = runs[id];
+    	if (run.tableWidget) {
+    		uint64_t total = 0;
+	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
+	    		SingleSplit &split = run.splits[sidx];
+	    		if (split.splitHas) {
+	    			total += split.splitMs;
+	    			if (split.totalTimeWidget)
+	    				split.totalTimeWidget->setText(msToStr(total));
+	    		}
+	    	}
+    	}
     }
 
     return true;
