@@ -41,18 +41,17 @@ Q_SIGNALS:
 };
 
 struct SingleSplit {
-    qint64 split;
-    bool splitHas;
+    bool splitHas = false;
     uint64_t splitMs;
-    bool totalHas;
-    uint64_t splitTotal;
-    QDomCharacterData outerXml; // <RealTime>
-    QDomCharacterData innerXml; // Text
-    bool xmlIsTotal; // otherwise split
+    bool totalHas = false;
+    uint64_t totalMs;
+    QDomElement timeXml; // <Time> (may be null)
+    QDomElement realTimeXml; // <RealTime> (may be null)
+    QDomCharacterData textXml; // Text inside <RealTime>
+    bool xmlIsTotal = false; // otherwise split
 };
 
 struct SingleRun {
-    qint64 run;
     QString timeLabel;
     QVector<SingleSplit> splits;
 
@@ -103,18 +102,20 @@ protected:
 	QDomDocument domDocument; // "Model"
 	QVBoxLayout *vLayout;
 
-    qint64 segmentsSeen; // Initialize to -1
+    qint64 topSegment; // Initialize to -1-- this is an index not a count
     SingleRun bestSplits, bestRun;
     QVector<qint64> runKeys;
     QHash<qint64, SingleRun> runs;
     QStringList splitNames;
 
+    // Constants
+    QStringList runTableLabels;
     QHash<QString, QString> standaloneKeys;
 
     qint64 fetchId(ParseState &state, QDomElement element);
     void addNodeFail(ParseState &state, QString message);
 	void addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout);
-    void renderRun(SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout);
+    void renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout);
 
 public:
     explicit XmlEdit(QWidget *parent = nullptr);

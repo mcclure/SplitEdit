@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
+#include <QTableWidget>
 
 uint64_t strToMs(const QString &s, bool *success) {
 	*success = false;
@@ -73,10 +74,14 @@ void DocumentEdit::clearUi() {
 }
 
 XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL) {
-	standaloneKeys["GameName"] = "Game name:";
-	standaloneKeys["CategoryName"] = "Category name:";
-	standaloneKeys["AttemptCount"] = "Attempts";
-	standaloneKeys["Offset"] = "Offset:";
+	standaloneKeys["GameName"] = tr("Game name:");
+	standaloneKeys["CategoryName"] = tr("Category name:");
+	standaloneKeys["AttemptCount"] = tr("Attempts");
+	standaloneKeys["Offset"] = tr("Offset:");
+
+	runTableLabels += QString(tr("Split name", "Table header split name"));
+	runTableLabels += QString(tr("Split", "Table header split time"));
+	runTableLabels += QString(tr("Total", "Table header total time"));
 }
 
 XmlEdit::~XmlEdit() {
@@ -90,6 +95,7 @@ void XmlEdit::clearUi() {
 	widget()->setLayout(vLayout);
 }
 
+// Unused, artifact of old XmlEdit program
 static const QString &nodeTypeName(QDomNode::NodeType nodeType) {
 	static QString Element("Element"), Attribute("Attribute"), Text("Text"),
 		CDATA("CData"), EntityReference("Entity Reference"), Entity("Entity"),
@@ -119,7 +125,7 @@ static const QString &nodeTypeName(QDomNode::NodeType nodeType) {
 
 void XmlEdit::addNodeFail(ParseState &state, QString message) {
 	QMessageBox messageBox(this);
-	messageBox.setText(QString("Could not open this file: ") + message);
+	messageBox.setText(QString(tr("Could not open this file: %1").arg(message)));
 	messageBox.exec();
 	state.dead = true;
 }
@@ -141,7 +147,7 @@ qint64 XmlEdit::fetchId(ParseState &state, QDomElement element) {
 	bool tempSuccess;
 	qint64 id = fetchElementInt(element, "id", &tempSuccess);
 	if (!tempSuccess) {
-		addNodeFail(state, QString("Couldn't understand attempt id: \"%1\"").arg(fetchElement(element, "id")));
+		addNodeFail(state, QString(tr("Couldn't understand attempt id: \"%1\"")).arg(fetchElement(element, "id")));
 		return 0;
 	}
 	return id;
@@ -162,14 +168,14 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 							state.kind = PARSING_ATTEMPT_SCAN;
 						} else if (tag == "Segments") {
 							state.kind = PARSING_SEGMENT_SCAN;
-							segmentsSeen = -1;
+							topSegment = -1;
 						} else if (standaloneKeys.count(tag)) {
 							state.kind = PARSING_STANDALONE;
 							state.str1 = standaloneKeys[tag];
 						}
 					} break;
 				case PARSING_ATTEMPT_SCAN: {
-					if (tag == "Attempt") {
+					if (tag == "Attempt") { // We have found an attempt, set it up in run keys
 						qint64 id = fetchId(state, element);
 						if (state.dead) return;
 
@@ -180,16 +186,16 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 						state.int1 = id;
 					}
 				} break;
-				case PARSING_ATTEMPT_INSIDE:
+				case PARSING_ATTEMPT_INSIDE: // In <Attempt> looking for <AttemptHistory>
 					if (tag == "AttemptHistory") {
 						state.kind = PARSING_ATTEMPT_REALTIME;
 					} break;
-				case PARSING_SEGMENT_SCAN:
+				case PARSING_SEGMENT_SCAN: // In <Segments> looking for <Segment>
 					if (tag == "Segment") {
-						segmentsSeen++;
+						topSegment++;
 						state.kind = PARSING_SEGMENT;
 					} break;
-				case PARSING_SEGMENT: {
+				case PARSING_SEGMENT: { // In <Segment> looking for one of several things
 					if (tag == "Name") {
 						state.kind = PARSING_SEGMENT_NAME;
 					} else if (tag == "SplitTimes") {
@@ -200,29 +206,40 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 						state.kind = PARSING_SEGMENT_HISTORY;
 					}
 				} break;
-			    case PARSING_SEGMENT_PB_SPLITTIMES:
+			    case PARSING_SEGMENT_PB_SPLITTIMES: // In <Segment><SplitTimes> looking for <SplitTime>
 					if (tag == "SplitTime") {
 						state.kind = PARSING_SEGMENT_PB_SPLITTIME;
 					} break;
-				case PARSING_SEGMENT_PB_SPLITTIME:
+				case PARSING_SEGMENT_PB_SPLITTIME: // In <Segment><SplitTimes><SplitTime> looking for <RealTime>
 					if (tag == "RealTime") {
 						state.kind = PARSING_SEGMENT_BESTSPLIT_REALTIME;
 					} break;
-		        case PARSING_SEGMENT_BESTSPLIT_BESTSEGMENTTIME:
+		        case PARSING_SEGMENT_BESTSPLIT_BESTSEGMENTTIME: // In <Segment><BestSegmentTime> looking for <RealTime>
 		        	if (tag == "RealTime") {
 						state.kind = PARSING_SEGMENT_PB_REALTIME;
 					} break;
-		        case PARSING_SEGMENT_HISTORY:
-		        	if (tag == "Time") {
-						qint64 id = fetchId(state, element);
+		        case PARSING_SEGMENT_HISTORY: // In <SegmentHistory> looking for <Time>
+		        	if (tag == "Time") { // We have now found data from an actual run
+						qint64 id = fetchId(state, element); // Run id
 						if (state.dead) return;
+
+						// Create data structure for run
+						SingleRun &run = runs[id];
+						Q_ASSERT_X(topSegment >= 0, "XML parse", "topSegment is uninitialized");
+						while (run.splits.size() <= topSegment) // Run ID is specified explicitly but split ID is implicit by order
+							run.splits.push_back(SingleSplit());
+						SingleSplit &split = run.splits[topSegment];
+						split.timeXml = element; // Need to save this if deletion is needed later
 
 						state.kind = PARSING_SEGMENT_HISTORY_RUN;
 						state.int1 = id;
-						state.dom1 = node;
 					} break;
-    			case PARSING_SEGMENT_HISTORY_RUN:
+    			case PARSING_SEGMENT_HISTORY_RUN: // In <SegmentHistory><Time> looking for <RealTime>
 		        	if (tag == "RealTime") {
+						SingleRun &run = runs[state.int1];
+						SingleSplit &split = run.splits[topSegment];
+						split.realTimeXml = element; // Need to save this if deletion is needed later
+
 						state.kind = PARSING_SEGMENT_HISTORY_RUN_REALTIME;
 					} break;
 				default:break;
@@ -232,7 +249,8 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 			QDomCharacterData text = node.toCharacterData();
 
 			switch(state.kind) {
-				case PARSING_STANDALONE: {
+				case PARSING_STANDALONE: { // One of the XML parameters that's in a standalone edit box at the top
+					// The standalone boxes are the only ones we layout in this initial XML-parsing pass
 					QString label = state.str1;
 
 					QWidget *assign = new QWidget(content);
@@ -250,25 +268,38 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 					assignEdit->setText(text.data());
 					new ShortCharacterDataWatcher(assignEdit, text);
 				} break;
-				case PARSING_ATTEMPT_REALTIME: {
+				case PARSING_ATTEMPT_REALTIME: { // Found the "total time" for a run, save position to edit later
 					SingleRun &run = runs[state.int1];
 					run.realTimeTotal = text;
 				} break;
-				case PARSING_SEGMENT_NAME: {
-					while (splitNames.size() < segmentsSeen-1)
+				case PARSING_SEGMENT_NAME: { // Found a segment name
+					while (splitNames.size() < topSegment)
 						splitNames.append(QString());
 					splitNames.append(text.data());
 				} break;
-				case PARSING_SEGMENT_PB_REALTIME:
+				case PARSING_SEGMENT_PB_REALTIME: // Found a split time
 				case PARSING_SEGMENT_BESTSPLIT_REALTIME:
 				case PARSING_SEGMENT_HISTORY_RUN_REALTIME: {
-					printf("kind %d, content %s\n", state.kind, text.data().toStdString().c_str());
 					bool success;
 					uint64_t time = strToMs(text.data(), &success);
-					if (success) {
-						printf("time %lld\n", time);
-						QString s = msToStr(time);
-						printf("reverse time %s\n", s.toStdString().c_str());
+					if (!success) {
+						addNodeFail(state, QString(tr("Couldn't parse time: \"%1\"")).arg(text.data()));
+						break;
+					}
+					switch(state.kind) {
+						case PARSING_SEGMENT_HISTORY_RUN_REALTIME: { // It's from a run
+							SingleRun &run = runs[state.int1];
+							SingleSplit &split = run.splits[topSegment];
+							split.textXml = text;
+							split.splitHas = true;
+							split.splitMs = time;
+						} break;
+						default: { // Debug, remove me
+							printf("kind %d, content %s\n", state.kind, text.data().toStdString().c_str());
+							printf("time %lld\n", time);
+							QString s = msToStr(time);
+							printf("reverse time %s\n", s.toStdString().c_str());
+						} break;
 					}
 				}
 				default:break;
@@ -292,10 +323,52 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 	}
 }
 
-void renderRun(SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout) {
-	//QLabel *kindLabel = new QLabel(content); vContentLayout->addWidget(kindLabel);
-	//kindLabel->setText(nodeTypeName(node.nodeType()));
-	//vContentLayout->addWidget(kindLabel);
+void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout) {
+	{
+		QFrame *line = new QFrame(content); // Magic <hr> code from Stack Overflow
+		line->setObjectName(QString::fromUtf8("line"));
+		line->setGeometry(QRect(320, 150, 118, 3));
+		line->setFrameShape(QFrame::HLine);
+		line->setFrameShadow(QFrame::Sunken);
+		vContentLayout->addWidget(line);
+	}
+
+	{ // Label is an hbox so there can be a "PB" badge later
+		QWidget *labelHbox = new QWidget(content);
+		QHBoxLayout *labelHLayout = new QHBoxLayout(labelHbox);
+		labelHLayout->setContentsMargins(0,0,0,0);
+		QLabel *label = new QLabel(labelHbox);
+		label->setText(runLabel);
+		labelHLayout->addWidget(label);
+		vContentLayout->addWidget(labelHbox);
+	}
+
+	if (run.splits.size()) { // Split table (if any)
+		QTableWidget *table = new QTableWidget(run.splits.size(), 3, content);
+		table->setHorizontalHeaderLabels(runTableLabels);
+
+    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
+    		SingleSplit &split = run.splits[sidx];
+
+    		QTableWidgetItem *splitTitle = new QTableWidgetItem();
+    		if (sidx < splitNames.size())
+    			splitTitle->setText(splitNames[sidx]);
+    		splitTitle->setFlags(0);
+    		table->setItem(sidx, 0, splitTitle);
+
+    		QTableWidgetItem *splitTime = new QTableWidgetItem();
+    		if (split.splitHas)
+    			splitTime->setText(msToStr(split.splitMs));
+    		table->setItem(sidx, 1, splitTime);
+
+    		QTableWidgetItem *totalTime = new QTableWidgetItem();
+    		if (split.totalHas)
+    			totalTime->setText(msToStr(split.totalMs));
+    		table->setItem(sidx, 2, totalTime);
+    	}
+
+    	vContentLayout->addWidget(table);
+    }
 }
 
 bool XmlEdit::isModified() const {
@@ -360,6 +433,13 @@ bool XmlEdit::read(QIODevice *device) {
     		ParseState previous = stack.pop();
     		current = previous.clone(previous.node.nextSibling());
     	}
+    }
+
+    for(int ridx = 0; ridx < runKeys.size(); ridx++) {
+    	int id = runKeys[ridx];
+    	SingleRun &run = runs[id];
+
+    	renderRun(QString("Run %1: %2").arg(id).arg(run.timeLabel), run, content, vContentLayout);
     }
 
     return true;
