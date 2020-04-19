@@ -342,7 +342,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 		vContentLayout->addWidget(line);
 	}
 
-	{
+	{ // Run labels
 		QWidget *labelHbox = new QWidget(content);
 		QHBoxLayout *labelHLayout = new QHBoxLayout(labelHbox);
 		labelHLayout->setContentsMargins(0,0,0,0);
@@ -375,6 +375,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 		table->verticalScrollBar()->setDisabled(true);
     	table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
+    	// Fill out all rows
     	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
     		SingleSplit &split = run.splits[sidx];
 
@@ -397,6 +398,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     		split.totalTimeWidget = totalTime;
     	}
 
+    	// Watch for changes, this routes to ::changed below
 		new XmlEditTableWatcher(table, this, run);
 
     	vContentLayout->addWidget(table);
@@ -559,6 +561,7 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    				split.textXml.setData(msToStr(totalMs));
 	    		}
 	    	}
+	    	// Handle the final "run total", which is tracked separately
 	    	if (changeFinalTotal && run.splits.size() == runTableLabels.size()) {
 	    		if (!run.realTimeTotal.isNull())
 		    		run.realTimeTotal.setData(msToStr(totalMs));
