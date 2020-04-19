@@ -2,7 +2,6 @@
 #include <QMessageBox>
 #include <QTextStream>
 #include <QStack>
-#include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QHeaderView>
@@ -355,6 +354,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 		QLabel *totalTime = new QLabel(labelHbox);
 		totalTime->setText(run.realTimeTotal.data());
 		labelHLayout->addWidget(totalTime);
+		run.realTimeTotalWidget = totalTime;
 
 		vContentLayout->addWidget(labelHbox);
 	}
@@ -431,7 +431,15 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 			split.splitMs = ms;
 		}
 		// Whichever column we just changed, correct the other side
-		xmlEdit->correctTable(run, cellIsTotal);
+		xmlEdit->correctTable(run, cellIsTotal, true);
+
+		// Edited last row, change total time also
+		if (cellIsTotal && item->row() == (run.splits.size()-1) && run.splits.size() == xmlEdit->runTableLabels.size()) {
+    		if (!run.realTimeTotal.isNull())
+	    		run.realTimeTotal.setData(empty ? QString() : msToStr(ms));
+    		if (run.realTimeTotalWidget)
+	    		run.realTimeTotalWidget->setText(empty ? QString() : msToStr(ms));
+    	}
 
 	// There's text in the cell but it's garbage, show the error icon
 	} else {
@@ -516,14 +524,15 @@ bool XmlEdit::read(QIODevice *device) {
     for(int ridx = 0; ridx < runKeys.size(); ridx++) {
     	int id = runKeys[ridx];
     	SingleRun &run = runs[id];
-    	correctTable(run, false); // Runs track split time
+    	correctTable(run, false, false); // Runs track split time
     }
 
     return true;
 }
 
 // If truthIsTotal convert total->split otherwise do the opposite
-void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal) {
+// If changeFinalTotal then it's okay to muck with realTimeTotal
+void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTotal) {
 	if (run.tableWidget) {
 		if (truthIsTotal) { // Total is truth, fill out splits
 			uint64_t lastMs = 0;
@@ -549,6 +558,12 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal) {
 	    			if (split.xmlIsTotal)
 	    				split.textXml.setData(msToStr(totalMs));
 	    		}
+	    	}
+	    	if (changeFinalTotal && run.splits.size() == runTableLabels.size()) {
+	    		if (!run.realTimeTotal.isNull())
+		    		run.realTimeTotal.setData(msToStr(totalMs));
+	    		if (run.realTimeTotalWidget)
+		    		run.realTimeTotalWidget->setText(msToStr(totalMs));
 	    	}
 	    }
 	}

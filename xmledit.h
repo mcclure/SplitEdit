@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QHash>
 #include <QTableWidget>
+#include <QLabel>
 
 // Frustratingly, Qt has no abstract document class.
 // They have a text document class but it cannot be separated from its text model.
@@ -59,6 +60,7 @@ struct SingleRun {
     QVector<SingleSplit> splits;
 
     QDomCharacterData realTimeTotal;
+    QLabel *realTimeTotalWidget = NULL;
     QTableWidget *tableWidget = NULL;
     //QDomCharacterData xml;
 };
@@ -121,7 +123,7 @@ protected:
     void addNodeFail(ParseState &state, QString message);
 	void addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout);
     void renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout);
-    void correctTable(SingleRun &run, bool truthIsTotal);
+    void correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTotal);
 
 public:
     explicit XmlEdit(QWidget *parent = nullptr);
