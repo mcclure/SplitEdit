@@ -42,11 +42,12 @@ Q_SIGNALS:
     //void undoCommandAdded();
 };
 
+// Note: Us means microseconds, as in 1/1000 millisecond
 struct SingleSplit {
     bool splitHas = false;
-    uint64_t splitMs;
+    uint64_t splitUs;
     bool totalHas = false;
-    uint64_t totalMs;
+    uint64_t totalUs;
     QDomElement timeXml; // <Time> (may be null)
     QDomElement realTimeXml; // <RealTime> (may be null)
     QDomCharacterData textXml; // Text inside <RealTime>

@@ -11,7 +11,7 @@
 
 #define REALTIME_TOTAL_STR(x) (QString(tr("Total time: %1")).arg(x))
 
-uint64_t strToMs(const QString &s, bool *success) {
+uint64_t strToUs(const QString &s, bool *success) {
 	*success = false;
 	uint64_t result = 0;
 	bool tempSuccess;
@@ -21,24 +21,26 @@ uint64_t strToMs(const QString &s, bool *success) {
 
 	if (decimal.size() > 2) return 0; // FAIL seconds.miliseconds is not a decimal
 
-	result = decimal[0].toLongLong(&tempSuccess) * 1000; // Seconds
+	result = decimal[0].toLongLong(&tempSuccess) * 1000*1000; // Seconds
 	if (!tempSuccess) return 0; // FAIL invalid seconds
 	if (decimal.size() == 2) { // Allow both :0 and :0.03
 		QString s = decimal[1];
-		s.toLongLong(&tempSuccess); // Test valid int before u 
-		if (!tempSuccess) return 0; // FAIL invalid ms
-		s.truncate(3);
+		s.toLongLong(&tempSuccess); // Test valid int before divide
+		if (!s.isEmpty() && !tempSuccess) return 0; // FAIL nonempty but invalid us
+		s.truncate(6);
+		while (s.size() < 6)
+			s = s + "0";
 		result += s.toLongLong(&tempSuccess); // Milliseconds
 	}
 
 	csegs = csegs.mid(0, csegs.size()-1);
 	if (csegs.size() > 0) {
-		result += csegs.constLast().toLongLong(&tempSuccess)*60*1000; // Minutes
+		result += csegs.constLast().toLongLong(&tempSuccess)*60*1000*1000; // Minutes
 		if (!tempSuccess) return 0; // FAIL invalid minutes
 
 		csegs = csegs.mid(0, csegs.size()-1);
 		if (csegs.size() > 0) {
-			result += csegs.constLast().toLongLong(&tempSuccess)*60*60*1000; // Hours
+			result += csegs.constLast().toLongLong(&tempSuccess)*60*60*1000*1000; // Hours
 			if (!tempSuccess) return 0;  // FAIL invalid hours
 			if (csegs.size() > 1) return 0; // FAIL too many colons
 		}
@@ -48,30 +50,30 @@ uint64_t strToMs(const QString &s, bool *success) {
 	return result;
 }
 
-QString msToStr(uint64_t ms) {
+QString usToStr(uint64_t us) {
 	uint64_t mantissa;
 	QString r;
 
-	mantissa = ms % 1000;
-	ms /= 1000;
-	r = QString::number(mantissa).rightJustified(3, '0');
+	mantissa = us % (1000*1000);
+	us /= (1000*1000);
+	r = QString::number(mantissa).rightJustified(6, '0');
 
-	mantissa = ms % 60;
-	ms /= 60;
+	mantissa = us % 60;
+	us /= 60;
 	r = QString::number(mantissa).rightJustified(2, '0') + "." + r;
 
-	mantissa = ms % 60;
-	ms /= 60;
+	mantissa = us % 60;
+	us /= 60;
 	r = QString::number(mantissa).rightJustified(2, '0') + ":" + r;
 
-	r = QString::number(ms).rightJustified(2, '0') + ":" + r;
+	r = QString::number(us).rightJustified(2, '0') + ":" + r;
 
 	return r;
 }
 
 // Call textXml.setData, but create DOM nodes along the path if needed
 // QDomDocument object is needed to create new nodes, so we have to pass it in :/
-static void writeXml(QDomDocument domDocument, uint64_t ms, bool present, QDomElement outerXml, QDomElement &realTimeXml, QDomCharacterData &textXml) {
+static void writeXml(QDomDocument domDocument, uint64_t us, bool present, QDomElement outerXml, QDomElement &realTimeXml, QDomCharacterData &textXml) {
 	if (outerXml.isNull()) {
 		fprintf(stderr, "Warning: Tried to modify DOM for time, but containing XML was null. This file seems to be malformed. Aborting modification\n");
 		return;
@@ -84,7 +86,7 @@ static void writeXml(QDomDocument domDocument, uint64_t ms, bool present, QDomEl
 		if (textXml.isNull()) {
 			textXml = realTimeXml.insertAfter(domDocument.createTextNode(QString()), QDomNode()).toCharacterData();
 		}
-		textXml.setData(msToStr(ms));
+		textXml.setData(usToStr(us));
 	} else {
 		if (!realTimeXml.isNull()) {
 			outerXml.removeChild(realTimeXml);
@@ -96,7 +98,7 @@ static void writeXml(QDomDocument domDocument, uint64_t ms, bool present, QDomEl
 
 // Call writeXml for a single split
 void SingleSplit::write(QDomDocument domDocument) {
-	writeXml(domDocument, xmlIsTotal ? totalMs : splitMs, xmlIsTotal ? totalHas : splitHas, timeXml, realTimeXml, textXml);
+	writeXml(domDocument, xmlIsTotal ? totalUs : splitUs, xmlIsTotal ? totalHas : splitHas, timeXml, realTimeXml, textXml);
 }
 
 DocumentEdit::DocumentEdit(QWidget *parent) : QScrollArea(parent) {
@@ -324,7 +326,7 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 				case PARSING_SEGMENT_BESTSPLIT_REALTIME:
 				case PARSING_SEGMENT_HISTORY_RUN_REALTIME: {
 					bool success;
-					uint64_t time = strToMs(text.data(), &success);
+					uint64_t time = strToUs(text.data(), &success);
 					if (!success) {
 						addNodeFail(state, QString(tr("Couldn't parse time: \"%1\"")).arg(text.data()));
 						break;
@@ -335,12 +337,12 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 							SingleSplit &split = run.splits[topSegment];
 							split.textXml = text;
 							split.splitHas = true;
-							split.splitMs = time;
+							split.splitUs = time;
 						} break;
 						default: { // Debug, remove me
 							printf("kind %d, content %s\n", state.kind, text.data().toStdString().c_str());
 							printf("time %lld\n", time);
-							QString s = msToStr(time);
+							QString s = usToStr(time);
 							printf("reverse time %s\n", s.toStdString().c_str());
 						} break;
 					}
@@ -431,7 +433,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     			splitTime->setText("-----");
     			splitTime->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
     		} else if (split.splitHas) {
-    			splitTime->setText(msToStr(split.splitMs));
+    			splitTime->setText(usToStr(split.splitUs));
     		}
     		table->setItem(sidx, 1, splitTime);
     		split.splitTimeWidget = splitTime;
@@ -444,7 +446,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     			totalTime->setText("-----");
     			totalTime->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
     		} else if (split.totalHas) {
-    			totalTime->setText(msToStr(split.totalMs));
+    			totalTime->setText(usToStr(split.totalUs));
     		}
     		table->setItem(sidx, 2, totalTime);
     		split.totalTimeWidget = totalTime;
@@ -466,7 +468,7 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 	// Interpret cell
 	QString text = item->text();
 	bool success;
-	uint64_t ms = strToMs(item->text(), &success);
+	uint64_t us = strToUs(item->text(), &success);
 	bool empty = text.isEmpty();
 
 	// Reconstruct table position
@@ -479,7 +481,7 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 		while (rowBefore >= 0) {
 			SingleSplit &splitBefore = run.splits[rowBefore];
 			if (splitBefore.totalHas) {
-				if (splitBefore.totalMs > ms) {
+				if (splitBefore.totalUs > us) {
 					success = false; // Clause below will set error icon
 				}
 				break;
@@ -492,13 +494,13 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 	if (success || empty) {
 		// Clear error icon
 		item->setIcon(xmlEdit->nullIcon);
-		// Copy ms value back into split
+		// Copy us value back into split
 		if (cellIsTotal) {
 			split.totalHas = !empty;
-			split.totalMs = ms;
+			split.totalUs = us;
 		} else {
 			split.splitHas = !empty;
-			split.splitMs = ms;
+			split.splitUs = us;
 		}
 		// Set underlying DOM element (if any)
 		if (cellIsTotal == split.xmlIsTotal)
@@ -509,9 +511,9 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 		// Edited last row, change total time also
 		if (cellIsTotal && item->row() == (run.splits.size()-1) && run.splits.size() == xmlEdit->runTableLabels.size()) {
     		if (!run.realTimeTotal.isNull())
-	    		run.realTimeTotal.setData(empty ? QString() : msToStr(ms));
+	    		run.realTimeTotal.setData(empty ? QString() : usToStr(us));
     		if (run.realTimeTotalWidget)
-	    		run.realTimeTotalWidget->setText(empty ? QString() : REALTIME_TOTAL_STR(msToStr(ms)));
+	    		run.realTimeTotalWidget->setText(empty ? QString() : REALTIME_TOTAL_STR(usToStr(us)));
     	}
 
 	// There's text in the cell but it's garbage, show the error icon
@@ -610,34 +612,34 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 
 	if (run.tableWidget) {
 		if (truthIsTotal) { // Total is truth, fill out splits
-			uint64_t lastMs = 0;
+			uint64_t lastUs = 0;
 	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
 	    		SingleSplit &split = run.splits[sidx];
 	    		if (split.totalHas) { // FIXME: check valid() here at some point?
-	    			uint64_t splitMs = split.totalMs - lastMs;
+	    			uint64_t splitUs = split.totalUs - lastUs;
 	    			if (split.splitTimeWidget) // Update widget on screen
-	    				split.splitTimeWidget->setText(msToStr(splitMs));
+	    				split.splitTimeWidget->setText(usToStr(splitUs));
 	    			// Update split object
-	    			split.splitMs = splitMs;
+	    			split.splitUs = splitUs;
 	    			split.splitHas = true;
 	    			if (!split.xmlIsTotal)
 	    				split.write(domDocument);
 	    			// Move on
-	    			lastMs = split.totalMs;
+	    			lastUs = split.totalUs;
 	    		}
 	    	}
 		} else { // Splits are truth, fill out totals
-			uint64_t totalMs = 0;
+			uint64_t totalUs = 0;
 	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
 	    		SingleSplit &split = run.splits[sidx];
 	    		if (!split.valid()) // There has been a reroute and any totals are meaningless.
 	    			break;
 	    		if (split.splitHas) {
-	    			totalMs += split.splitMs;
+	    			totalUs += split.splitUs;
 	    			if (split.totalTimeWidget) // Update widget on screen
-	    				split.totalTimeWidget->setText(msToStr(totalMs));
+	    				split.totalTimeWidget->setText(usToStr(totalUs));
 	    			// Update split object
-	    			split.totalMs = totalMs;
+	    			split.totalUs = totalUs;
 	    			split.totalHas = true;
 	    			if (split.xmlIsTotal)
 	    				split.write(domDocument);
@@ -646,9 +648,9 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    	// Handle the final "run total", which is tracked separately
 	    	if (changeFinalTotal && run.splits.size() == runTableLabels.size()) {
 	    		if (!run.realTimeTotal.isNull())
-		    		run.realTimeTotal.setData(msToStr(totalMs));
+		    		run.realTimeTotal.setData(usToStr(totalUs));
 	    		if (run.realTimeTotalWidget)
-		    		run.realTimeTotalWidget->setText(REALTIME_TOTAL_STR(msToStr(totalMs)));
+		    		run.realTimeTotalWidget->setText(REALTIME_TOTAL_STR(usToStr(totalUs)));
 	    	}
 	    }
 	}
