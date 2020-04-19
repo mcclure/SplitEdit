@@ -105,7 +105,8 @@ static void writeXml(QDomDocument domDocument, uint64_t us, bool present, QDomEl
 		textXml.setData(usToStr(us));
 	} else {
 		if (!realTimeXml.isNull()) {
-			outerXml.removeChild(realTimeXml);
+			if (!outerXml.isNull())
+				outerXml.removeChild(realTimeXml);
 			outerXml.clear();
 		}
 		textXml.clear();
@@ -720,11 +721,16 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    			// Update split object
 	    			split.splitUs = splitUs;
 	    			split.splitHas = true;
-	    			if (!split.xmlIsTotal)
-	    				split.write(domDocument);
 	    			// Move on
 	    			lastUs = split.totalUs;
+	    		} else {
+	    			if (split.splitTimeWidget) // Update widget on screen
+	    				split.splitTimeWidget->setText(QString());
+	    			// Update split object
+	    			split.splitHas = false;
 	    		}
+    			if (!split.xmlIsTotal) // Write changes to xml DOM
+    				split.write(domDocument);
 	    	}
 		} else { // Splits are truth, fill out totals
 			uint64_t totalUs = 0;
@@ -739,9 +745,14 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    			// Update split object
 	    			split.totalUs = totalUs;
 	    			split.totalHas = true;
-	    			if (split.xmlIsTotal)
-	    				split.write(domDocument);
+	    		} else {
+	    			if (split.totalTimeWidget) // Update widget on screen
+	    				split.totalTimeWidget->setText(QString());
+	    			// Update split object
+	    			split.totalHas = false;
 	    		}
+    			if (split.xmlIsTotal) // Write changes to xml DOM
+    				split.write(domDocument);
 	    	}
 	    	// Handle the final "run total", which is tracked separately
 	    	if (changeFinalTotal && run.splits.size() == runTableLabels.size()) {
