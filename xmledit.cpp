@@ -67,6 +67,36 @@ QString msToStr(uint64_t ms) {
 	return r;
 }
 
+// Call textXml.setData, but create DOM nodes along the path if needed
+// QDomDocument object is needed to create new nodes, so we have to pass it in :/
+static void writeXml(QDomDocument domDocument, uint64_t ms, bool present, QDomElement outerXml, QDomElement &realTimeXml, QDomCharacterData &textXml) {
+	if (outerXml.isNull()) {
+		fprintf(stderr, "Warning: Tried to modify DOM for time, but containing XML was null. This file seems to be malformed. Aborting modification\n");
+		return;
+	}
+	if (present) {
+		if (realTimeXml.isNull()) {
+			realTimeXml = outerXml.insertAfter(domDocument.createElement("RealTime"), QDomNode()).toElement();
+			textXml.clear();
+		}
+		if (textXml.isNull()) {
+			textXml = realTimeXml.insertAfter(domDocument.createTextNode(QString()), QDomNode()).toCharacterData();
+		}
+		textXml.setData(msToStr(ms));
+	} else {
+		if (!realTimeXml.isNull()) {
+			outerXml.removeChild(realTimeXml);
+			outerXml.clear();
+		}
+		textXml.clear();
+	}
+}
+
+// Call writeXml for a single split
+void SingleSplit::write(QDomDocument domDocument) {
+	writeXml(domDocument, xmlIsTotal ? totalMs : splitMs, xmlIsTotal ? totalHas : splitHas, timeXml, realTimeXml, textXml);
+}
+
 DocumentEdit::DocumentEdit(QWidget *parent) : QScrollArea(parent) {
 	setWidgetResizable(true);
 }
@@ -421,9 +451,6 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 	if (success || empty) {
 		// Clear error icon
 		item->setIcon(xmlEdit->nullIcon);
-		// Set underlying DOM element (if any)
-		if (cellIsTotal == split.xmlIsTotal)
-			split.textXml.setData(item->text());
 		// Copy ms value back into split
 		if (cellIsTotal) {
 			split.totalHas = !empty;
@@ -432,6 +459,9 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 			split.splitHas = !empty;
 			split.splitMs = ms;
 		}
+		// Set underlying DOM element (if any)
+		if (cellIsTotal == split.xmlIsTotal)
+			split.write(xmlEdit->domDocument);
 		// Whichever column we just changed, correct the other side
 		xmlEdit->correctTable(run, cellIsTotal, true);
 
@@ -542,10 +572,14 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    		SingleSplit &split = run.splits[sidx];
 	    		if (split.totalHas) {
 	    			uint64_t splitMs = split.totalMs - lastMs;
-	    			if (split.splitTimeWidget)
+	    			if (split.splitTimeWidget) // Update widget on screen
 	    				split.splitTimeWidget->setText(msToStr(splitMs));
+	    			// Update split object
+	    			split.splitMs = splitMs;
+	    			split.splitHas = true;
 	    			if (!split.xmlIsTotal)
-	    				split.textXml.setData(msToStr(splitMs));
+	    				split.write(domDocument);
+	    			// Move on
 	    			lastMs = split.totalMs;
 	    		}
 	    	}
@@ -555,10 +589,13 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    		SingleSplit &split = run.splits[sidx];
 	    		if (split.splitHas) {
 	    			totalMs += split.splitMs;
-	    			if (split.totalTimeWidget)
+	    			if (split.totalTimeWidget) // Update widget on screen
 	    				split.totalTimeWidget->setText(msToStr(totalMs));
+	    			// Update split object
+	    			split.totalMs = totalMs;
+	    			split.splitHas = true;
 	    			if (split.xmlIsTotal)
-	    				split.textXml.setData(msToStr(totalMs));
+	    				split.write(domDocument);
 	    		}
 	    	}
 	    	// Handle the final "run total", which is tracked separately

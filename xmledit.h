@@ -53,6 +53,7 @@ struct SingleSplit {
     bool xmlIsTotal = false; // otherwise split
     QTableWidgetItem *splitTimeWidget = NULL;
     QTableWidgetItem *totalTimeWidget = NULL;
+    void write(QDomDocument domDocument);
 };
 
 struct SingleRun {
