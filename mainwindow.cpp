@@ -349,6 +349,7 @@ void MainWindow::loadFile(const QString &fileName)
     }
 
     if (!xmlEdit->read(&file)) { // Will print own message box
+        setCurrentFile(QString());
         return;
     }
 

@@ -49,8 +49,8 @@ struct SingleSplit {
     uint64_t splitUs;
     bool totalHas = false;
     uint64_t totalUs;
-    QDomElement timeXml; // <Time> (may be null)
-    QDomElement realTimeXml; // <RealTime> (may be null)
+    QDomElement timeXml; // <Time>, <SplitTime> or <BestSegmentTime>
+    QDomElement realTimeXml; // <RealTime>
     QDomCharacterData textXml; // Text inside <RealTime>
     bool xmlIsTotal = false; // otherwise split
     QTableWidgetItem *splitTimeWidget = NULL;
@@ -67,6 +67,7 @@ struct SingleRun {
     QLabel *realTimeTotalWidget = NULL;
     QTableWidget *tableWidget = NULL;
     //QDomCharacterData xml;
+    void ensureSpaceFor(int splitIdx);
 };
 
 enum ParseStateKind {

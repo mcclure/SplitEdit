@@ -10,6 +10,7 @@
 #include "TableWidgetNoScroll.h"
 
 #define REALTIME_TOTAL_STR(x) (QString(tr("Total time: %1")).arg(x))
+#define SUPPRESS_DEBUG_FNS
 
 uint64_t strToUs(const QString &s, bool *success) {
 	*success = false;
@@ -70,6 +71,21 @@ QString usToStr(uint64_t us) {
 
 	return r;
 }
+
+#ifndef SUPPRESS_DEBUG_FNS
+static void testStrToUs(QString str) {
+	printf("string %s\n", str.toStdString().c_str());
+	bool valid;
+	uint64_t time = strToUs(str, &valid);
+	if (valid) {
+		printf("time %lld\n", time);
+		QString s = usToStr(time);
+		printf("reverse time %s\n", s.toStdString().c_str());
+	} else {
+		printf("time invalid\n");
+	}
+}
+#endif
 
 // Call textXml.setData, but create DOM nodes along the path if needed
 // QDomDocument object is needed to create new nodes, so we have to pass it in :/
@@ -145,6 +161,7 @@ void XmlEdit::clearUi() {
 }
 
 // Unused, artifact of old XmlEdit program
+#ifndef SUPPRESS_DEBUG_FNS
 static const QString &nodeTypeName(QDomNode::NodeType nodeType) {
 	static QString Element("Element"), Attribute("Attribute"), Text("Text"),
 		CDATA("CData"), EntityReference("Entity Reference"), Entity("Entity"),
@@ -168,7 +185,8 @@ static const QString &nodeTypeName(QDomNode::NodeType nodeType) {
 		case QDomNode::BaseNode:                  return Base;
 		case QDomNode::CharacterDataNode:         return CharacterData;
 	}
-} 
+}
+#endif
 
 #include <watchers.h>
 
@@ -200,6 +218,11 @@ qint64 XmlEdit::fetchId(ParseState &state, QDomElement element) {
 		return 0;
 	}
 	return id;
+}
+
+void SingleRun::ensureSpaceFor(int splitIdx) {
+	while (this->splits.size() <= splitIdx)
+		this->splits.push_back(SingleSplit());
 }
 
 void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout) {
@@ -250,22 +273,41 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 					} else if (tag == "SplitTimes") {
 						state.kind = PARSING_SEGMENT_PB_SPLITTIMES;
 					} else if (tag == "BestSegmentTime") {
+						// Notice: Run ID is specified explicitly but split ID is always implicit by XML order
+						bestSplits.ensureSpaceFor(topSegment);
+						SingleSplit &split = bestSplits.splits[topSegment];
+
 						state.kind = PARSING_SEGMENT_BESTSPLIT_BESTSEGMENTTIME;
+						split.timeXml = element;
 					} else if (tag == "SegmentHistory") {
 						state.kind = PARSING_SEGMENT_HISTORY;
 					}
 				} break;
-			    case PARSING_SEGMENT_PB_SPLITTIMES: // In <Segment><SplitTimes> looking for <SplitTime>
+			    case PARSING_SEGMENT_PB_SPLITTIMES: // In <SplitTimes> looking for <SplitTime name="Personal Best">
 					if (tag == "SplitTime") {
-						state.kind = PARSING_SEGMENT_PB_SPLITTIME;
+						QString name = fetchElement(element, "name");
+						if (name == "Personal Best") {
+							bestRun.ensureSpaceFor(topSegment);
+							SingleSplit &split = bestRun.splits[topSegment];
+
+							state.kind = PARSING_SEGMENT_PB_SPLITTIME;
+							split.timeXml = element;
+							split.xmlIsTotal = true; // For whatever reason this is how LiveSplit measures PBs
+						}
 					} break;
-				case PARSING_SEGMENT_PB_SPLITTIME: // In <Segment><SplitTimes><SplitTime> looking for <RealTime>
+				case PARSING_SEGMENT_PB_SPLITTIME: // In <SplitTimes><SplitTime name="Personal Best"> looking for <RealTime>
 					if (tag == "RealTime") {
-						state.kind = PARSING_SEGMENT_BESTSPLIT_REALTIME;
-					} break;
-		        case PARSING_SEGMENT_BESTSPLIT_BESTSEGMENTTIME: // In <Segment><BestSegmentTime> looking for <RealTime>
-		        	if (tag == "RealTime") {
+						SingleSplit &split = bestRun.splits[topSegment];
+
 						state.kind = PARSING_SEGMENT_PB_REALTIME;
+						split.realTimeXml = element;
+					} break;
+		        case PARSING_SEGMENT_BESTSPLIT_BESTSEGMENTTIME: // In <BestSegmentTime> looking for <RealTime>
+		        	if (tag == "RealTime") {
+		        		SingleSplit &split = bestSplits.splits[topSegment];
+
+						state.kind = PARSING_SEGMENT_BESTSPLIT_REALTIME;
+						split.realTimeXml = element;
 					} break;
 		        case PARSING_SEGMENT_HISTORY: // In <SegmentHistory> looking for <Time>
 		        	if (tag == "Time") { // We have now found data from an actual run
@@ -275,8 +317,7 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 						// Create data structure for run
 						SingleRun &run = runs[id];
 						Q_ASSERT_X(topSegment >= 0, "XML parse", "topSegment is uninitialized");
-						while (run.splits.size() <= topSegment) // Run ID is specified explicitly but split ID is implicit by order
-							run.splits.push_back(SingleSplit());
+						run.ensureSpaceFor(topSegment);
 						SingleSplit &split = run.splits[topSegment];
 						split.timeXml = element; // Need to save this if deletion is needed later
 
@@ -343,11 +384,20 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 							split.splitHas = true;
 							split.splitUs = time;
 						} break;
-						default: { // Debug, remove me
-							printf("kind %d, content %s\n", state.kind, text.data().toStdString().c_str());
-							printf("time %lld\n", time);
-							QString s = usToStr(time);
-							printf("reverse time %s\n", s.toStdString().c_str());
+						case PARSING_SEGMENT_PB_REALTIME: { // It's from the PB record
+							SingleSplit &split = bestRun.splits[topSegment];
+							split.textXml = text;
+							split.totalHas = true; // Again notice PB XML is recorded as total
+							split.totalUs = time;
+						} break;
+						case PARSING_SEGMENT_BESTSPLIT_REALTIME: { // It's a best split
+							SingleSplit &split = bestSplits.splits[topSegment];
+							split.textXml = text;
+							split.splitHas = true;
+							split.splitUs = time;
+						} break;
+						default: {
+							Q_ASSERT_X(false, "time parse", "Unreachable code reached");
 						} break;
 					}
 				}
@@ -574,6 +624,8 @@ bool XmlEdit::read(QIODevice *device) {
     int errorLine;
     int errorColumn;
 
+    clear();
+
     if (!domDocument.setContent(device, true, &errorStr, &errorLine,
                                 &errorColumn)) {
         QMessageBox::information(window(), tr("XML Editor"),
@@ -583,8 +635,6 @@ bool XmlEdit::read(QIODevice *device) {
                                  .arg(errorStr));
         return false;
     }
-
-    clearUi();
 
     QDomElement root = domDocument.documentElement();
     QStack<ParseState> stack;
@@ -619,14 +669,18 @@ bool XmlEdit::read(QIODevice *device) {
     }
 
     // Build tables
+    renderRun(QString(tr("Personal Best")), bestRun, content, vContentLayout);
+    renderRun(QString(tr("Best Splits")), bestSplits, content, vContentLayout);
     for(int ridx = 0; ridx < runKeys.size(); ridx++) {
     	int id = runKeys[ridx];
     	SingleRun &run = runs[id];
 
-    	renderRun(QString("Run %1: %2").arg(id).arg(run.timeLabel), run, content, vContentLayout);
+    	renderRun(QString(tr("Run %1: %2")).arg(id).arg(run.timeLabel), run, content, vContentLayout);
     }
 
     // Double-check tables
+    correctTable(bestRun, true, false);
+    correctTable(bestSplits, false, false);
     for(int ridx = 0; ridx < runKeys.size(); ridx++) {
     	int id = runKeys[ridx];
     	SingleRun &run = runs[id];
