@@ -123,6 +123,8 @@ XmlEdit::~XmlEdit() {
 void XmlEdit::clearUi() {
 	DocumentEdit::clearUi();
 
+	correctingTable = false;
+
 	topSegment = -1; // This is all essentially UI state
 	bestSplits = SingleRun();
 	bestRun = SingleRun();
@@ -437,6 +439,10 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 }
 
 void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
+	// printf("DEBUG- ::CHANGED! row %d col %d correctingTable? %s data %s\n", item->row(), item->column(), xmlEdit->correctingTable?"Y":"N", item->text().toStdString().c_str());
+	if (xmlEdit->correctingTable) // This slot is for catching changes by the user.
+		return;          // If we set a change off ourselves, ignore it.
+
 	// Interpret cell
 	QString text = item->text();
 	bool success;
@@ -446,6 +452,21 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 	// Reconstruct table position
 	bool cellIsTotal = item->column() == 2;
 	SingleSplit &split = run.splits[item->row()];
+
+	// Make sure the clock never goes backward
+	if (cellIsTotal && success && !empty) {
+		int rowBefore = item->row() - 1;
+		while (rowBefore >= 0) {
+			SingleSplit &splitBefore = run.splits[rowBefore];
+			if (splitBefore.totalHas) {
+				if (splitBefore.totalMs > ms) {
+					success = false; // Clause below will set error icon
+				}
+				break;
+			}
+			rowBefore--;
+		}
+	}
 
 	// Note an empty input is a valid input, it implies the split was skipped
 	if (success || empty) {
@@ -565,6 +586,8 @@ bool XmlEdit::read(QIODevice *device) {
 // If truthIsTotal convert total->split otherwise do the opposite
 // If changeFinalTotal then it's okay to muck with realTimeTotal
 void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTotal) {
+	correctingTable = true; // Create a block in time we don't trigger ::changed
+
 	if (run.tableWidget) {
 		if (truthIsTotal) { // Total is truth, fill out splits
 			uint64_t lastMs = 0;
@@ -593,7 +616,7 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    				split.totalTimeWidget->setText(msToStr(totalMs));
 	    			// Update split object
 	    			split.totalMs = totalMs;
-	    			split.splitHas = true;
+	    			split.totalHas = true;
 	    			if (split.xmlIsTotal)
 	    				split.write(domDocument);
 	    		}
@@ -607,6 +630,8 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    	}
 	    }
 	}
+
+	correctingTable = false;
 }
 
 bool XmlEdit::write(QIODevice *device) const {

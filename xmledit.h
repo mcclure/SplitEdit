@@ -108,6 +108,7 @@ class XmlEdit : public DocumentEdit
 protected:
 	QDomDocument domDocument; // "Model"
 	QVBoxLayout *vLayout;
+	bool correctingTable;
 
     qint64 topSegment; // Initialize to -1-- this is an index not a count
     SingleRun bestSplits, bestRun;
