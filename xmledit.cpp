@@ -109,7 +109,7 @@ void DocumentEdit::clearUi() {
 	setWidget(new QWidget());
 }
 
-XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIcon(QApplication::style()->standardIcon(QStyle::SP_BrowserStop)) {
+XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIcon(QApplication::style()->standardIcon(QStyle::SP_BrowserStop)), monoFont("generic-mono-font-pqfugjdf") {
 	standaloneKeys["GameName"] = tr("Game name:");
 	standaloneKeys["CategoryName"] = tr("Category name:");
 	standaloneKeys["AttemptCount"] = tr("Attempts");
@@ -118,6 +118,9 @@ XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIco
 	runTableLabels += QString(tr("Split name", "Table header split name"));
 	runTableLabels += QString(tr("Split", "Table header split time"));
 	runTableLabels += QString(tr("Total", "Table header total time"));
+
+	// monoFont is intentionally assigned a nonsense name so that setStyleHint picks the font by itself
+	monoFont.setStyleHint(QFont::Monospace);
 }
 
 XmlEdit::~XmlEdit() {
@@ -135,6 +138,7 @@ void XmlEdit::clearUi() {
 	runKeys.clear();
 	runs.clear();
 	splitNames.clear();
+	columnWidthHave = false;
 
 	vLayout = new QVBoxLayout(widget());
 	widget()->setLayout(vLayout);
@@ -428,28 +432,55 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     		table->setItem(sidx, 0, splitTitle);
 
     		QTableWidgetItem *splitTime = new QTableWidgetItem();
+    		splitTime->setFont(monoFont);
     		if (!valid) { // File has been edited in split editor -- not valid
     			splitTime->setFlags(0);
     			splitTime->setText("-----");
     			splitTime->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
-    		} else if (split.splitHas) {
-    			splitTime->setText(usToStr(split.splitUs));
+    		} else {
+    			if (split.splitHas)
+    				splitTime->setText(usToStr(split.splitUs));
+    			splitTime->setTextAlignment(Qt::AlignRight|Qt::AlignVCenter);
     		}
     		table->setItem(sidx, 1, splitTime);
     		split.splitTimeWidget = splitTime;
 
     		QTableWidgetItem *totalTime = new QTableWidgetItem();
+    		totalTime->setFont(monoFont);
     		if (!allValid) { // Right now, if there are any invalid splits, editing a total time after this will confuse the app.
     			totalTime->setFlags(0); // So just don't let that happen.
     		}
     		if (!valid) { // File has been edited in split editor -- not valid
     			totalTime->setText("-----");
     			totalTime->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
-    		} else if (split.totalHas) {
-    			totalTime->setText(usToStr(split.totalUs));
+    		} else {
+    			if (split.totalHas)
+    				totalTime->setText(usToStr(split.totalUs));
+    			totalTime->setTextAlignment(Qt::AlignRight|Qt::AlignVCenter);
     		}
     		table->setItem(sidx, 2, totalTime);
     		split.totalTimeWidget = totalTime;
+
+    		// Set column sizes
+    		if (!columnWidthHave) {
+    			QFontMetrics nameMetrics(splitTitle->font());
+    			QFontMetrics timeMetrics(totalTime->font());
+
+    			columnWidthName = nameMetrics.horizontalAdvance("XXXXX");
+    			for (int sidx = 0; sidx < splitNames.size(); sidx++) {
+    				int candidateWidth = nameMetrics.horizontalAdvance(splitNames[sidx] + "XXXXX");
+    				if (columnWidthName < candidateWidth)
+    					columnWidthName = candidateWidth;
+    			}
+
+    			// In testing this seems to give the width of 88:88:88.888888, which is... wrong but OK?
+    			columnWidthTime = timeMetrics.horizontalAdvance("88888:88:88.888888");
+
+    			columnWidthHave = true;
+    		}
+    		table->setColumnWidth(0, columnWidthName);
+    		table->setColumnWidth(1, columnWidthTime);
+    		table->setColumnWidth(2, columnWidthTime);
     	}
 
     	// Watch for changes, this routes to ::changed below

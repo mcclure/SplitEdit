@@ -25,13 +25,12 @@ Then run:
 * No undo
 * Can't remove a run
 * If a run has fewer splits than it should you can't fix this
-* Split totaling might work wrong for files which have been edited (for example by removing a split)
-* Rounds to millisecond, this is what you want for LiveSplit but not for LiveSplit One
+* Rounds to microsecond, this is what you want for LiveSplit One but for LiveSplit classic millisecond would be better
+* If your split names are very long the times will get clipped on the right side of the window
+* Changing the "offset" field doesn't change times
 * Open/save starts at system root every time :/
 * Open/save doesn't filter for .lss files
 * File-modified tracking might be wrong
-
-This application will likely get unacceptably slow for very large (hundreds of megabytes) XML files.
 
 # License
 

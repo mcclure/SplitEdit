@@ -8,6 +8,7 @@
 #include <QHash>
 #include <QTableWidget>
 #include <QLabel>
+#include <QFont>
 
 // Frustratingly, Qt has no abstract document class.
 // They have a text document class but it cannot be separated from its text model.
@@ -112,16 +113,23 @@ protected:
 	QVBoxLayout *vLayout;
 	bool correctingTable;
 
+	// GUI state
     qint64 topSegment; // Initialize to -1-- this is an index not a count
     SingleRun bestSplits, bestRun;
     QVector<qint64> runKeys;
     QHash<qint64, SingleRun> runs;
     QStringList splitNames;
 
+    // GUI metrics
+    bool columnWidthHave;
+    int columnWidthName;
+    int columnWidthTime;
+
     // Constants
     QStringList runTableLabels;
     QHash<QString, QString> standaloneKeys;
     QIcon nullIcon, stopIcon;
+    QFont monoFont;
 
     qint64 fetchId(ParseState &state, QDomElement element);
     void addNodeFail(ParseState &state, QString message);
