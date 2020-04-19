@@ -54,6 +54,7 @@ struct SingleSplit {
     QTableWidgetItem *splitTimeWidget = NULL;
     QTableWidgetItem *totalTimeWidget = NULL;
     void write(QDomDocument domDocument);
+    bool valid() { return !timeXml.isNull(); }
 };
 
 struct SingleRun {

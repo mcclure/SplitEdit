@@ -9,6 +9,8 @@
 #include <QApplication>
 #include "TableWidgetNoScroll.h"
 
+#define REALTIME_TOTAL_STR(x) (QString(tr("Total time: %1")).arg(x))
+
 uint64_t strToMs(const QString &s, bool *success) {
 	*success = false;
 	uint64_t result = 0;
@@ -384,7 +386,10 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 		labelHLayout->addWidget(label);
 
 		QLabel *totalTime = new QLabel(labelHbox);
-		totalTime->setText(run.realTimeTotal.data());
+		QString realTimeTotalString = run.realTimeTotal.data();
+		if (!realTimeTotalString.isEmpty())
+			realTimeTotalString = REALTIME_TOTAL_STR(run.realTimeTotal.data());
+		totalTime->setText(realTimeTotalString);
 		labelHLayout->addWidget(totalTime);
 		run.realTimeTotalWidget = totalTime;
 
@@ -408,8 +413,11 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     	table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     	// Fill out all rows
+    	bool allValid = true;
     	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
     		SingleSplit &split = run.splits[sidx];
+    		bool valid = split.valid();
+    		allValid = allValid && valid;
 
     		QTableWidgetItem *splitTitle = new QTableWidgetItem();
     		if (sidx < splitNames.size())
@@ -418,14 +426,26 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     		table->setItem(sidx, 0, splitTitle);
 
     		QTableWidgetItem *splitTime = new QTableWidgetItem();
-    		if (split.splitHas)
+    		if (!valid) { // File has been edited in split editor -- not valid
+    			splitTime->setFlags(0);
+    			splitTime->setText("-----");
+    			splitTime->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
+    		} else if (split.splitHas) {
     			splitTime->setText(msToStr(split.splitMs));
+    		}
     		table->setItem(sidx, 1, splitTime);
     		split.splitTimeWidget = splitTime;
 
     		QTableWidgetItem *totalTime = new QTableWidgetItem();
-    		if (split.totalHas)
+    		if (!allValid) { // Right now, if there are any invalid splits, editing a total time after this will confuse the app.
+    			totalTime->setFlags(0); // So just don't let that happen.
+    		}
+    		if (!valid) { // File has been edited in split editor -- not valid
+    			totalTime->setText("-----");
+    			totalTime->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
+    		} else if (split.totalHas) {
     			totalTime->setText(msToStr(split.totalMs));
+    		}
     		table->setItem(sidx, 2, totalTime);
     		split.totalTimeWidget = totalTime;
     	}
@@ -491,7 +511,7 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
     		if (!run.realTimeTotal.isNull())
 	    		run.realTimeTotal.setData(empty ? QString() : msToStr(ms));
     		if (run.realTimeTotalWidget)
-	    		run.realTimeTotalWidget->setText(empty ? QString() : msToStr(ms));
+	    		run.realTimeTotalWidget->setText(empty ? QString() : REALTIME_TOTAL_STR(msToStr(ms)));
     	}
 
 	// There's text in the cell but it's garbage, show the error icon
@@ -593,7 +613,7 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 			uint64_t lastMs = 0;
 	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
 	    		SingleSplit &split = run.splits[sidx];
-	    		if (split.totalHas) {
+	    		if (split.totalHas) { // FIXME: check valid() here at some point?
 	    			uint64_t splitMs = split.totalMs - lastMs;
 	    			if (split.splitTimeWidget) // Update widget on screen
 	    				split.splitTimeWidget->setText(msToStr(splitMs));
@@ -610,6 +630,8 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 			uint64_t totalMs = 0;
 	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
 	    		SingleSplit &split = run.splits[sidx];
+	    		if (!split.valid()) // There has been a reroute and any totals are meaningless.
+	    			break;
 	    		if (split.splitHas) {
 	    			totalMs += split.splitMs;
 	    			if (split.totalTimeWidget) // Update widget on screen
@@ -626,7 +648,7 @@ void XmlEdit::correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTo
 	    		if (!run.realTimeTotal.isNull())
 		    		run.realTimeTotal.setData(msToStr(totalMs));
 	    		if (run.realTimeTotalWidget)
-		    		run.realTimeTotalWidget->setText(msToStr(totalMs));
+		    		run.realTimeTotalWidget->setText(REALTIME_TOTAL_STR(msToStr(totalMs)));
 	    	}
 	    }
 	}
