@@ -558,16 +558,29 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 
 	// Make sure the clock never goes backward
 	if (cellIsTotal && success && !empty) {
-		int rowBefore = item->row() - 1;
-		while (rowBefore >= 0) {
-			SingleSplit &splitBefore = run.splits[rowBefore];
+		int checkRow = item->row() - 1; // Check rows before
+		while (checkRow >= 0) {
+			SingleSplit &splitBefore = run.splits[checkRow];
 			if (splitBefore.totalHas) {
 				if (splitBefore.totalUs > us) {
 					success = false; // Clause below will set error icon
 				}
 				break;
 			}
-			rowBefore--;
+			checkRow--;
+		}
+		if (success) {
+			checkRow = item->row() + 1;
+			while (checkRow < run.splits.size()) {
+				SingleSplit &splitAfter = run.splits[checkRow];
+				if (splitAfter.totalHas) {
+					if (splitAfter.totalUs < us) {
+						success = false; // Clause below will set error icon
+					}
+					break;
+				}
+				checkRow++;
+			}
 		}
 	}
 
