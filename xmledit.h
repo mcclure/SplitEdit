@@ -9,6 +9,7 @@
 #include <QTableWidget>
 #include <QLabel>
 #include <QFont>
+#include <QCheckBox>
 
 // Frustratingly, Qt has no abstract document class.
 // They have a text document class but it cannot be separated from its text model.
@@ -120,6 +121,7 @@ protected:
     QVector<qint64> runKeys;
     QHash<qint64, SingleRun> runs;
     QStringList splitNames;
+    QCheckBox *bestSplitsAutomaticWidget, *bestRunAutomaticWidget;
 
     // GUI metrics
     bool columnWidthHave;
@@ -135,7 +137,7 @@ protected:
     qint64 fetchId(ParseState &state, QDomElement element);
     void addNodeFail(ParseState &state, QString message);
 	void addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout);
-    void renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout);
+    void renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout, QCheckBox **automaticBox = NULL);
     void correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTotal);
 
 public:

@@ -156,6 +156,8 @@ void XmlEdit::clearUi() {
 	runs.clear();
 	splitNames.clear();
 	columnWidthHave = false;
+	bestSplitsAutomaticWidget = NULL;
+	bestRunAutomaticWidget = NULL;
 
 	vLayout = new QVBoxLayout(widget());
 	widget()->setLayout(vLayout);
@@ -423,7 +425,7 @@ void XmlEdit::addNode(ParseState &state, int depth, QWidget *content, QVBoxLayou
 	}
 }
 
-void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout) {
+void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout, QCheckBox **automaticBox) {
 	{
 		QFrame *line = new QFrame(content); // Magic <hr> code from Stack Overflow
 		line->setObjectName(QString::fromUtf8("line"));
@@ -441,6 +443,11 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 		QLabel *label = new QLabel(labelHbox);
 		label->setText(runLabel);
 		labelHLayout->addWidget(label);
+
+		if (automaticBox) {
+			*automaticBox = new QCheckBox(tr("Automatic"), labelHbox);
+			labelHLayout->addWidget(*automaticBox);
+		}
 
 		QLabel *totalTime = new QLabel(labelHbox);
 		QString realTimeTotalString = run.realTimeTotal.data();
@@ -683,8 +690,8 @@ bool XmlEdit::read(QIODevice *device) {
     }
 
     // Build tables
-    renderRun(QString(tr("Personal Best")), bestRun, content, vContentLayout);
-    renderRun(QString(tr("Best Splits")), bestSplits, content, vContentLayout);
+    renderRun(QString(tr("Personal Best")), bestRun, content, vContentLayout, &bestRunAutomaticWidget);
+    renderRun(QString(tr("Best Splits")), bestSplits, content, vContentLayout, &bestSplitsAutomaticWidget);
     for(int ridx = 0; ridx < runKeys.size(); ridx++) {
     	int id = runKeys[ridx];
     	SingleRun &run = runs[id];
