@@ -154,8 +154,8 @@ void MainWindow::about()
 //! [13] //! [14]
 {
    QMessageBox::about(this, tr("About Application"),
-            tr("This program lets you edit the data in XML files as text, "
-               "handling XML formatting and escaping for you."));
+            tr("This program lets you edit the .LSS files created by "
+               "LiveSplit or LiveSplit One. Version %1").arg(PROJECT_VERSION));
 }
 //! [14]
 

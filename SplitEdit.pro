@@ -15,6 +15,8 @@ RESOURCES     = application.qrc
 
 RC_ICONS = icons/windows.ico
 ICON = icons/mac.icns
+VERSION = 0.1
+DEFINES += PROJECT_VERSION=\\\"$$VERSION\\\"
 
 # install
 target.path = $$[QT_INSTALL_EXAMPLES]/widgets/mainwindows/application
