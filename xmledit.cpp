@@ -126,7 +126,7 @@ void DocumentEdit::clearUi() {
 	setWidget(new QWidget());
 }
 
-XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIcon(QApplication::style()->standardIcon(QStyle::SP_BrowserStop)), monoFont("generic-mono-font-pqfugjdf") {
+XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIcon(QApplication::style()->standardIcon(QStyle::SP_BrowserStop)), starIcon(":/images/star-48px.png"), monoFont("generic-mono-font-pqfugjdf") {
 	standaloneKeys["GameName"] = tr("Game name:");
 	standaloneKeys["CategoryName"] = tr("Category name:");
 	standaloneKeys["AttemptCount"] = tr("Attempts");
@@ -532,7 +532,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     			}
 
     			// In testing this seems to give the width of 88:88:88.888888, which is... wrong but OK?
-    			columnWidthTime = timeMetrics.horizontalAdvance("88888:88:88.888888");
+    			columnWidthTime = timeMetrics.horizontalAdvance("8888888:88:88.888888");
 
     			columnWidthHave = true;
     		}
@@ -595,7 +595,8 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 	// Note an empty input is a valid input, it implies the split was skipped
 	if (success || empty) {
 		// Clear error icon
-		item->setIcon(xmlEdit->nullIcon);
+		//item->setIcon(xmlEdit->nullIcon);
+		item->setIcon(xmlEdit->starIcon);
 		// Copy us value back into split
 		if (cellIsTotal) {
 			split.totalHas = !empty;

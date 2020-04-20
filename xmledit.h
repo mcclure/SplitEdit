@@ -132,6 +132,7 @@ protected:
     QStringList runTableLabels;
     QHash<QString, QString> standaloneKeys;
     QIcon nullIcon, stopIcon;
+    QIcon starIcon;
     QFont monoFont;
 
     qint64 fetchId(ParseState &state, QDomElement element);

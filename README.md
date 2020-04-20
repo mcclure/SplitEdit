@@ -55,3 +55,4 @@ The Qt libraries have a LGPL license. The Qt example code this is based on has a
 > 
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+The icon files in images/ (copy.png, cut.png, new.png, open.png, paste.png, save.png) come from the Qt sample code and are BSD licensed. star-48px.png is from [Wikimedia Commons](https://commons.m.wikimedia.org/wiki/File:Emblem-star.svg) and is public domain.
