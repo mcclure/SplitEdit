@@ -13,7 +13,7 @@ SOURCES       = main.cpp \
 RESOURCES     = application.qrc
 #! [0]
 
-RC_ICONS = icons/windows.ico
+RC_ICONS = icons/icon.ico
 ICON = icons/mac.icns
 VERSION = 0.1
 DEFINES += PROJECT_VERSION=\\\"$$VERSION\\\"
