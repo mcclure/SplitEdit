@@ -140,6 +140,7 @@ protected:
     QIcon nullIcon, stopIcon;
     QIcon starIcon;
     QFont monoFont, boldFont;
+    QPalette nullPalette, pbPalette;
 
     qint64 fetchId(ParseState &state, QDomElement element);
     void addNodeFail(ParseState &state, QString message);

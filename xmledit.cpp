@@ -139,6 +139,10 @@ XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIco
 	// monoFont is intentionally assigned a nonsense name so that setStyleHint picks the font by itself
 	monoFont.setStyleHint(QFont::Monospace);
 	boldFont.setBold(true);
+
+	QLabel tempLabel;
+	pbPalette.setColor(QPalette::WindowText, QColor(255,255,0  ));
+	pbPalette.setColor(tempLabel.backgroundRole(), QColor(32, 32, 32 ));
 }
 
 XmlEdit::~XmlEdit() {
@@ -460,9 +464,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 
 		QLabel *personalBestFlag = new QLabel(labelHbox);
 		personalBestFlag->setFont(boldFont);
-		QPalette palette = personalBestFlag->palette();
-		palette.setColor(QPalette::WindowText, QColor(255,0,0).darker());
-		personalBestFlag->setPalette(palette);
+		personalBestFlag->setAlignment(Qt::AlignHCenter);
 		labelHLayout->addWidget(personalBestFlag);
 		run.personalBestWidget = personalBestFlag;
 
@@ -714,13 +716,16 @@ void XmlEdit::recheckAuto() {
 	    	int id = runKeys[ridx];
 	    	SingleRun &run = runs[id];
 	    	bool best = id == bestRunId;
+	    	bool bestEqual = best;
 
 	    	if (best) {
 	    		run.personalBestWidget->setText(tr("(Personal Best)", "PB flag on run"));
 	    	} else {
-	    		bool bestEqual = run.finalTotalHas(splitNames) && run.finalTotal() == bestRunTotal;
+	    		bestEqual = run.finalTotalHas(splitNames) && run.finalTotal() == bestRunTotal;
 	    		run.personalBestWidget->setText(bestEqual ? tr("(Personal Best)", "PB flag on run") : QString());
 	    	}
+	    	run.personalBestWidget->setPalette(bestEqual ? pbPalette : nullPalette);
+	    	run.personalBestWidget->setAutoFillBackground(bestEqual);
 	    }
 	}
 
