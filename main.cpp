@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName("QtProject");
     QCoreApplication::setApplicationName("Application Example");
     QCoreApplication::setApplicationVersion(QT_VERSION_STR);
+    QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QCommandLineParser parser;
     parser.setApplicationDescription(QCoreApplication::applicationName());
     parser.addHelpOption();

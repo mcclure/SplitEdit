@@ -6,6 +6,6 @@
     <file>images/open.png</file>
     <file>images/paste.png</file>
     <file>images/save.png</file>
-    <file>images/star-48px.png</file>
+    <file>images/star.png</file>
 </qresource>
 </RCC>

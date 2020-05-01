@@ -126,7 +126,7 @@ void DocumentEdit::clearUi() {
 	setWidget(new QWidget());
 }
 
-XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIcon(QApplication::style()->standardIcon(QStyle::SP_BrowserStop)), starIcon(":/images/star-48px.png"), monoFont("generic-mono-font-pqfugjdf") {
+XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIcon(QApplication::style()->standardIcon(QStyle::SP_BrowserStop)), starIcon(":/images/star.png"), monoFont("generic-mono-font-pqfugjdf") {
 	standaloneKeys["GameName"] = tr("Game name:");
 	standaloneKeys["CategoryName"] = tr("Category name:");
 	standaloneKeys["AttemptCount"] = tr("Attempts");
@@ -141,8 +141,8 @@ XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIco
 	boldFont.setBold(true);
 
 	QLabel tempLabel;
-	pbPalette.setColor(QPalette::WindowText, QColor(255,255,0  ));
-	pbPalette.setColor(tempLabel.backgroundRole(), QColor(32, 32, 32 ));
+	pbPalette.setColor(QPalette::WindowText, QColor(255,207,48));
+	pbPalette.setColor(tempLabel.backgroundRole(), QColor(32, 32, 32));
 }
 
 XmlEdit::~XmlEdit() {
@@ -532,8 +532,8 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 
     		// Set column sizes
     		if (!columnWidthHave) {
-    			QFontMetrics nameMetrics(splitTitle->font());
-    			QFontMetrics timeMetrics(totalTime->font());
+    			QFontMetrics nameMetrics(monoFont);
+    			QFontMetrics timeMetrics(monoFont);
 
     			columnWidthName = nameMetrics.horizontalAdvance("XXXXX");
     			for (int sidx = 0; sidx < splitNames.size(); sidx++) {
@@ -543,7 +543,7 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
     			}
 
     			// In testing this seems to give the width of 88:88:88.888888, which is... wrong but OK?
-    			columnWidthTime = timeMetrics.horizontalAdvance("8888888:88:88.888888");
+    			columnWidthTime = timeMetrics.horizontalAdvance("888888888:88:88.888888");
 
     			columnWidthHave = true;
     		}
