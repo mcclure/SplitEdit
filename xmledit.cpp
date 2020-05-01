@@ -460,12 +460,9 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 
 		QLabel *personalBestFlag = new QLabel(labelHbox);
 		personalBestFlag->setFont(boldFont);
-
 		QPalette palette = personalBestFlag->palette();
 		palette.setColor(QPalette::WindowText, QColor(255,0,0).darker());
 		personalBestFlag->setPalette(palette);
-
-		personalBestFlag->setVisible(false);
 		labelHLayout->addWidget(personalBestFlag);
 		run.personalBestWidget = personalBestFlag;
 
@@ -664,7 +661,6 @@ void XmlEdit::recheckAuto() {
 
 	// Auto pb
 	int bestRunId = -1;
-printf("CHECKED? %s\n",bestRunAutomaticWidget->isChecked()?"Y":"N");
 	if (bestRunAutomaticWidget->isChecked()) {
 		// Choose which run is the new PB
 		uint64_t bestRunTotal = 0;
@@ -672,12 +668,10 @@ printf("CHECKED? %s\n",bestRunAutomaticWidget->isChecked()?"Y":"N");
 		for(int ridx = 0; ridx < runKeys.size(); ridx++) {
 	    	int id = runKeys[ridx];
 	    	SingleRun &run = runs[id];
-printf("RUN #%d, %s\n", ridx, run.finalTotalHas(splitNames)?"Y":"N");
 	    	if (run.finalTotalHas(splitNames)) {
 	    		uint64_t finalTotal = run.finalTotal();
 	    		if (bestRunId < 0 || runs[bestRunId].finalTotal() <= finalTotal) {
 	    			// This is the best run we've checked so far
-printf("RUN %d IS BEST\n", ridx);
 	    			bestRunId = id;
 	    			bestRunTotal = finalTotal;
 	    			bestRunEqual = true;
@@ -719,11 +713,13 @@ printf("RUN %d IS BEST\n", ridx);
 	    	int id = runKeys[ridx];
 	    	SingleRun &run = runs[id];
 	    	bool best = id == bestRunId;
-	    	bool bestEqual = best || (run.finalTotalHas(splitNames) && run.finalTotal() == bestRunTotal);
 
-	    	run.personalBestWidget->setText(best ? tr("(Personal Best)", "PB flag on run") :
-	    		                                   tr("(Personal Best Equal)", "PB flag on run"));
-	    	run.personalBestWidget->setVisible(bestEqual);
+	    	if (best) {
+	    		run.personalBestWidget->setText(tr("(Personal Best)", "PB flag on run"));
+	    	} else {
+	    		bool bestEqual = run.finalTotalHas(splitNames) && run.finalTotal() == bestRunTotal;
+	    		run.personalBestWidget->setText(bestEqual ? tr("(Personal Best)", "PB flag on run") : QString());
+	    	}
 	    }
 	}
 
