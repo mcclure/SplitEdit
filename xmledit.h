@@ -139,7 +139,7 @@ protected:
     QHash<QString, QString> standaloneKeys;
     QIcon nullIcon, stopIcon;
     QIcon starIcon;
-    QFont monoFont;
+    QFont monoFont, boldFont;
 
     qint64 fetchId(ParseState &state, QDomElement element);
     void addNodeFail(ParseState &state, QString message);

@@ -24,6 +24,7 @@ If any of your runs did not finish, the table for that run will be missing rows 
 * Changing the "offset" field doesn't change times (should it??)
 * Open/save doesn't filter for .lss files
 * File-modified tracking might be wrong
+* "Personal Best" badge might look bad on "night mode" themes?
 
 # Building
 

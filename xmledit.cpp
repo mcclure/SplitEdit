@@ -138,6 +138,7 @@ XmlEdit::XmlEdit(QWidget *parent) : DocumentEdit(parent), vLayout(NULL), stopIco
 
 	// monoFont is intentionally assigned a nonsense name so that setStyleHint picks the font by itself
 	monoFont.setStyleHint(QFont::Monospace);
+	boldFont.setBold(true);
 }
 
 XmlEdit::~XmlEdit() {
@@ -458,6 +459,12 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 		run.realTimeTotalWidget = totalTime;
 
 		QLabel *personalBestFlag = new QLabel(labelHbox);
+		personalBestFlag->setFont(boldFont);
+
+		QPalette palette = personalBestFlag->palette();
+		palette.setColor(QPalette::WindowText, QColor(255,0,0).darker());
+		personalBestFlag->setPalette(palette);
+
 		personalBestFlag->setVisible(false);
 		labelHLayout->addWidget(personalBestFlag);
 		run.personalBestWidget = personalBestFlag;
