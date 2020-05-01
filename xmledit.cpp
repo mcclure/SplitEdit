@@ -457,6 +457,11 @@ void XmlEdit::renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBo
 		labelHLayout->addWidget(totalTime);
 		run.realTimeTotalWidget = totalTime;
 
+		QLabel *personalBestFlag = new QLabel(labelHbox);
+		personalBestFlag->setVisible(false);
+		labelHLayout->addWidget(personalBestFlag);
+		run.personalBestWidget = personalBestFlag;
+
 		vContentLayout->addWidget(labelHbox);
 	}
 
@@ -595,8 +600,8 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 	// Note an empty input is a valid input, it implies the split was skipped
 	if (success || empty) {
 		// Clear error icon
-		//item->setIcon(xmlEdit->nullIcon);
-		item->setIcon(xmlEdit->starIcon);
+		split.hasError = false;
+
 		// Copy us value back into split
 		if (cellIsTotal) {
 			split.totalHas = !empty;
@@ -619,10 +624,114 @@ void XmlEditTableWatcher::changed(QTableWidgetItem *item) {
 	    		run.realTimeTotalWidget->setText(empty ? QString() : REALTIME_TOTAL_STR(usToStr(us)));
     	}
 
+    	xmlEdit->recheckAuto(); // TODO: Only if value changed
 	// There's text in the cell but it's garbage, show the error icon
 	} else {
 		item->setIcon(xmlEdit->stopIcon);
+		split.hasError = true;
 	}
+}
+
+bool SingleRun::finalTotalHas(QStringList &splitNames) {
+	return splits.size() > 0
+	    && splits.size() == splitNames.size()
+	    && splits.last().totalHas;
+}
+uint64_t SingleRun::finalTotal() {
+	return splits.last().totalUs;
+}
+
+void SingleSplit::copyContent(SingleSplit &other, QDomDocument writeDocument) {
+    splitHas = other.splitHas;
+    totalHas = other.totalHas;
+    splitUs = other.splitUs;
+    totalUs = other.totalUs;
+
+	if (!writeDocument.isNull())
+		write(writeDocument);
+}
+
+void XmlEdit::recheckAuto() {
+	if (splitNames.size() == 0) // ???
+		return;
+
+	// Auto pb
+	int bestRunId = -1;
+printf("CHECKED? %s\n",bestRunAutomaticWidget->isChecked()?"Y":"N");
+	if (bestRunAutomaticWidget->isChecked()) {
+		// Choose which run is the new PB
+		uint64_t bestRunTotal = 0;
+		bool bestRunEqual = true;
+		for(int ridx = 0; ridx < runKeys.size(); ridx++) {
+	    	int id = runKeys[ridx];
+	    	SingleRun &run = runs[id];
+printf("RUN #%d, %s\n", ridx, run.finalTotalHas(splitNames)?"Y":"N");
+	    	if (run.finalTotalHas(splitNames)) {
+	    		uint64_t finalTotal = run.finalTotal();
+	    		if (bestRunId < 0 || runs[bestRunId].finalTotal() <= finalTotal) {
+	    			// This is the best run we've checked so far
+printf("RUN %d IS BEST\n", ridx);
+	    			bestRunId = id;
+	    			bestRunTotal = finalTotal;
+	    			bestRunEqual = true;
+	    			if (run.splits.size() != bestRun.splits.size()) {
+	    				bestRunEqual = false;
+	    			} else {
+		    			for(int sidx = 0; sidx < run.splits.size(); sidx++) {
+		    				SingleSplit &split = run.splits[sidx];
+		    				SingleSplit &pbSplit = bestRun.splits[sidx];
+
+		    				if (split.totalHas != pbSplit.totalHas || (split.totalHas && split.totalUs != pbSplit.totalUs)) {
+		    					bestRunEqual = false;
+		    				}
+		    			}
+		    		}
+	    		}
+	    	}
+	    }
+	    // The new PB must be copied into bestRun?
+	    if (!bestRunEqual) {
+	    	SingleRun &newBestRun = runs[bestRunId];
+
+	    	if (bestRun.splits.size() < newBestRun.splits.size()) {
+	    		QMessageBox::warning(this, tr("Sorry"),
+                               tr("The PB XML has fewer entries than the actual PB and currently this app can't fix that."),
+                               QMessageBox::Cancel);
+	    	} else {
+		    	for(int sidx = 0; sidx < newBestRun.splits.size(); sidx++) {
+		    		//bestRun.ensureSpaceFor(sidx);
+		    		bestRun.splits[sidx].copyContent(newBestRun.splits[sidx]);
+		    	}
+		    }
+	    }
+	}
+    // Flag PB
+    if (bestRun.finalTotalHas(splitNames)) {
+    	uint64_t bestRunTotal = bestRun.finalTotal();
+	    for(int ridx = 0; ridx < runKeys.size(); ridx++) {
+	    	int id = runKeys[ridx];
+	    	SingleRun &run = runs[id];
+	    	bool best = id == bestRunId;
+	    	bool bestEqual = best || (run.finalTotalHas(splitNames) && run.finalTotal() == bestRunTotal);
+
+	    	run.personalBestWidget->setText(best ? tr("(Personal Best)", "PB flag on run") :
+	    		                                   tr("(Personal Best Equal)", "PB flag on run"));
+	    	run.personalBestWidget->setVisible(bestEqual);
+	    }
+	}
+
+
+	if (bestSplitsAutomaticWidget->isChecked()) {
+		for(int ridx = 0; ridx < runKeys.size(); ridx++) {
+	    	int id = runKeys[ridx];
+	    	SingleRun &run = runs[id];
+
+	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
+	    	}
+	    }
+	}
+
+	//item->setIcon(xmlEdit->nullIcon);
 }
 
 bool XmlEdit::isModified() const {
@@ -708,6 +817,12 @@ bool XmlEdit::read(QIODevice *device) {
     	SingleRun &run = runs[id];
     	correctTable(run, false, false); // Runs track split time
     }
+    recheckAuto(); // All this can do is flag equals
+
+    connect(bestRunAutomaticWidget, &QCheckBox::stateChanged,
+            this, &XmlEdit::checkboxChanged);
+    connect(bestSplitsAutomaticWidget, &QCheckBox::stateChanged,
+            this, &XmlEdit::checkboxChanged);
 
     return true;
 }
@@ -789,3 +904,6 @@ void XmlEdit::clear() { // Also resets file state
 	clearUi();
 }
 
+void XmlEdit::checkboxChanged(int) {
+	recheckAuto();
+}

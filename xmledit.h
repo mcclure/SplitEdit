@@ -47,8 +47,10 @@ Q_SIGNALS:
 // Note: Us means microseconds, as in 1/1000 millisecond
 struct SingleSplit {
     bool splitHas = false;
-    uint64_t splitUs;
     bool totalHas = false;
+    bool hasError = false;
+    bool hasBest = false;
+    uint64_t splitUs;
     uint64_t totalUs;
     QDomElement timeXml; // <Time>, <SplitTime> or <BestSegmentTime>
     QDomElement realTimeXml; // <RealTime>
@@ -56,6 +58,7 @@ struct SingleSplit {
     bool xmlIsTotal = false; // otherwise split
     QTableWidgetItem *splitTimeWidget = NULL;
     QTableWidgetItem *totalTimeWidget = NULL;
+    void copyContent(SingleSplit &other, QDomDocument writeDocument = QDomDocument());
     void write(QDomDocument domDocument);
     bool valid() { return !timeXml.isNull(); }
 };
@@ -66,9 +69,12 @@ struct SingleRun {
 
     QDomCharacterData realTimeTotal;
     QLabel *realTimeTotalWidget = NULL;
+    QLabel *personalBestWidget = NULL;
     QTableWidget *tableWidget = NULL;
     //QDomCharacterData xml;
     void ensureSpaceFor(int splitIdx);
+    bool finalTotalHas(QStringList &splitNames);
+    uint64_t finalTotal(); // Must check finalTotalHas() > 0 before calling
 };
 
 enum ParseStateKind {
@@ -140,6 +146,7 @@ protected:
 	void addNode(ParseState &state, int depth, QWidget *content, QVBoxLayout *vContentLayout);
     void renderRun(QString runLabel, SingleRun &run, QWidget *content, QVBoxLayout *vContentLayout, QCheckBox **automaticBox = NULL);
     void correctTable(SingleRun &run, bool truthIsTotal, bool changeFinalTotal);
+    void recheckAuto();
 
 public:
     explicit XmlEdit(QWidget *parent = nullptr);
@@ -155,6 +162,7 @@ public Q_SLOTS:
 	void cut();
     void copy();
     void paste();
+    void checkboxChanged(int state);
 #endif
     //void undo();
     //void redo();
