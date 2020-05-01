@@ -703,6 +703,7 @@ void XmlEdit::recheckAuto() {
 		    		//bestRun.ensureSpaceFor(sidx);
 		    		bestRun.splits[sidx].copyContent(newBestRun.splits[sidx]);
 		    	}
+		    	correctTable(bestRun, true, true);
 		    }
 	    }
 	}
@@ -723,16 +724,52 @@ void XmlEdit::recheckAuto() {
 	    }
 	}
 
-
 	if (bestSplitsAutomaticWidget->isChecked()) {
+		bool bestSplitChanged = false;
 		for(int ridx = 0; ridx < runKeys.size(); ridx++) {
 	    	int id = runKeys[ridx];
 	    	SingleRun &run = runs[id];
 
 	    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
+	    		if (sidx < bestSplits.splits.size()) {
+		    		SingleSplit &split = run.splits[sidx];
+		    		SingleSplit &bestSplit = bestSplits.splits[sidx];
+
+		    		if (split.splitHas && (!bestSplit.splitHas || split.splitUs < bestSplit.splitUs)) {
+	    				bestSplit.splitUs = split.splitUs;
+	    				bestSplit.splitHas = true;
+	    				bestSplitChanged = true;
+	    			}
+		    	}
 	    	}
 	    }
+	    if (bestSplitChanged) {
+	    	correctTable(bestSplits, false, true);
+	    }
 	}
+	for(int ridx = 0; ridx < runKeys.size(); ridx++) {
+    	int id = runKeys[ridx];
+    	SingleRun &run = runs[id];
+
+    	for(int sidx = 0; sidx < run.splits.size(); sidx++) {
+    		SingleSplit &split = run.splits[sidx];
+
+    		split.hasBest = false;
+
+    		if (sidx < bestSplits.splits.size()) {
+	    		SingleSplit &split = run.splits[sidx];
+	    		SingleSplit &bestSplit = bestSplits.splits[sidx];
+
+	    		if (split.splitHas && bestSplit.splitHas && split.splitUs <= bestSplit.splitUs) {
+	    			split.hasBest = true;
+    			}
+	    	}
+
+	    	if (!split.hasError)
+	    		split.splitTimeWidget->setIcon(split.hasBest ? starIcon : nullIcon);
+    	}
+    }
+
 
 	//item->setIcon(xmlEdit->nullIcon);
 }
